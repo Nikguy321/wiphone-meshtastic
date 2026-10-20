@@ -1597,6 +1597,10 @@ static void testProblemsAndLibrary() {
   ok(kosyncNotABook("smsmirror.txt"), "smsmirror.txt");
   ok(kosyncNotABook("gemini.txt") && kosyncNotABook("Gemini.txt"),
      "gemini.txt, any case (the AI's key - the T-Deck keeps it at the card's root)");
+  ok(kosyncNotABook("chutes.txt") && kosyncNotABook("CHUTES.TXT") && !kosyncNotABook("parachutes.txt"),
+     "chutes.txt, any case (the AI's Chutes key, D-175) - and only that name");
+  ok(kosyncNotABook("tavily.txt") && kosyncNotABook("Tavily.TXT") && !kosyncNotABook("mytavily.txt"),
+     "tavily.txt, any case (the AI's web search key, D-176) - and only that name");
   ok(!kosyncNotABook("my-notes.txt"), "a real .txt book");
   ok(!kosyncNotABook("kosync.txt.epub") && !kosyncNotABook("my kosync.txt"), "only the exact names");
   ok(!kosyncNotABook(NULL) && !kosyncNotABook(""), "nothing");

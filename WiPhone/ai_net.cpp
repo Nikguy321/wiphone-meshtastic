@@ -1,12 +1,17 @@
 /*
  * ai_net.cpp - see ai_net.h. The decisions (the key file's format, the body, the answer, the
- * ladder, the chat's rules) are gemini.cpp's and host-tested; this file is the card, the gates,
- * the worker and the wire.
+ * ladder, the chat's rules) are gemini.cpp's and host-tested - and since D-175 chutes.cpp's for the
+ * second provider; this file is the card, the gates, the worker and the wire.
  */
 #include "ai_net.h"
 #include "gemini.h"
+#include "chutes.h"             // D-175: Chutes' presets, body, answer, ladder and words (host-tested)
 #include "wiki_lookup.h"        // the Wikipedia lookup before each question: keywords, URL, parse, background
-#include "isrg_roots.h"         // ...and the roots en.wikipedia.org chains to (X1 + X2 + Root YE)
+#include "isrg_roots.h"         // ...and the roots en.wikipedia.org chains to (X1 + X2 + Root YE); all four in Chutes' set
+#include "gts_roots.h"          // Google's GTS R1 + R4 (Gemini's pin; in Chutes' set too)
+#include "godaddy_roots.h"      // D-175: the root llm.chutes.ai chains to today
+#include "websearch.h"          // D-176: tavily.txt, the Auto rule, the body, the streaming parser, the block (host-tested)
+#include "amazon_roots.h"       // D-176: the roots api.tavily.com chains to (Amazon Root CA 1 + Starfield G2)
 #include "https_worker.h"       // the worker, shared with the weather since 0.9.81, and netHttps
 #include "weather_net.h"        // wxRequestActive: a question asked behind a weather fetch
 #include "tile_fetch.h"         // tlsInstallPsramHook, tileFetchActive, tileFetchCallRecent, filesJobActive
@@ -20,8 +25,9 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <SD.h>
-#include <Preferences.h>        // "Retry if it times out" (NVS, the firmware's "wpmesh" namespace)
+#include <Preferences.h>        // "Retry if it times out", the model choice (NVS, the firmware's "wpmesh" namespace)
 #include <esp_heap_caps.h>
+#include <esp_system.h>         // esp_random: each Chutes attempt's seed
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <string.h>
@@ -84,60 +90,57 @@ extern volatile bool gGbcActive;          // WiPhone.ino: the emulator owns the 
  * override (the first cut had one, after ota.cpp's /user.pem) let anyone nearby plant their own
  * root and then read the key off the wire. If Google ever leaves both roots (they run to 2036),
  * that is a firmware update. */
-static const char AI_ROOTS_PEM[] =
-  // GTS Root R1
-  "-----BEGIN CERTIFICATE-----\n"
-  "MIIFVzCCAz+gAwIBAgINAgPlk28xsBNJiGuiFzANBgkqhkiG9w0BAQwFADBHMQsw\n"
-  "CQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEU\n"
-  "MBIGA1UEAxMLR1RTIFJvb3QgUjEwHhcNMTYwNjIyMDAwMDAwWhcNMzYwNjIyMDAw\n"
-  "MDAwWjBHMQswCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZp\n"
-  "Y2VzIExMQzEUMBIGA1UEAxMLR1RTIFJvb3QgUjEwggIiMA0GCSqGSIb3DQEBAQUA\n"
-  "A4ICDwAwggIKAoICAQC2EQKLHuOhd5s73L+UPreVp0A8of2C+X0yBoJx9vaMf/vo\n"
-  "27xqLpeXo4xL+Sv2sfnOhB2x+cWX3u+58qPpvBKJXqeqUqv4IyfLpLGcY9vXmX7w\n"
-  "Cl7raKb0xlpHDU0QM+NOsROjyBhsS+z8CZDfnWQpJSMHobTSPS5g4M/SCYe7zUjw\n"
-  "TcLCeoiKu7rPWRnWr4+wB7CeMfGCwcDfLqZtbBkOtdh+JhpFAz2weaSUKK0Pfybl\n"
-  "qAj+lug8aJRT7oM6iCsVlgmy4HqMLnXWnOunVmSPlk9orj2XwoSPwLxAwAtcvfaH\n"
-  "szVsrBhQf4TgTM2S0yDpM7xSma8ytSmzJSq0SPly4cpk9+aCEI3oncKKiPo4Zor8\n"
-  "Y/kB+Xj9e1x3+naH+uzfsQ55lVe0vSbv1gHR6xYKu44LtcXFilWr06zqkUspzBmk\n"
-  "MiVOKvFlRNACzqrOSbTqn3yDsEB750Orp2yjj32JgfpMpf/VjsPOS+C12LOORc92\n"
-  "wO1AK/1TD7Cn1TsNsYqiA94xrcx36m97PtbfkSIS5r762DL8EGMUUXLeXdYWk70p\n"
-  "aDPvOmbsB4om3xPXV2V4J95eSRQAogB/mqghtqmxlbCluQ0WEdrHbEg8QOB+DVrN\n"
-  "VjzRlwW5y0vtOUucxD/SVRNuJLDWcfr0wbrM7Rv1/oFB2ACYPTrIrnqYNxgFlQID\n"
-  "AQABo0IwQDAOBgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4E\n"
-  "FgQU5K8rJnEaK0gnhS9SZizv8IkTcT4wDQYJKoZIhvcNAQEMBQADggIBAJ+qQibb\n"
-  "C5u+/x6Wki4+omVKapi6Ist9wTrYggoGxval3sBOh2Z5ofmmWJyq+bXmYOfg6LEe\n"
-  "QkEzCzc9zolwFcq1JKjPa7XSQCGYzyI0zzvFIoTgxQ6KfF2I5DUkzps+GlQebtuy\n"
-  "h6f88/qBVRRiClmpIgUxPoLW7ttXNLwzldMXG+gnoot7TiYaelpkttGsN/H9oPM4\n"
-  "7HLwEXWdyzRSjeZ2axfG34arJ45JK3VmgRAhpuo+9K4l/3wV3s6MJT/KYnAK9y8J\n"
-  "ZgfIPxz88NtFMN9iiMG1D53Dn0reWVlHxYciNuaCp+0KueIHoI17eko8cdLiA6Ef\n"
-  "MgfdG+RCzgwARWGAtQsgWSl4vflVy2PFPEz0tv/bal8xa5meLMFrUKTX5hgUvYU/\n"
-  "Z6tGn6D/Qqc6f1zLXbBwHSs09dR2CQzreExZBfMzQsNhFRAbd03OIozUhfJFfbdT\n"
-  "6u9AWpQKXCBfTkBdYiJ23//OYb2MI3jSNwLgjt7RETeJ9r/tSQdirpLsQBqvFAnZ\n"
-  "0E6yove+7u7Y/9waLd64NnHi/Hm3lCXRSHNboTXns5lndcEZOitHTtNCjv0xyBZm\n"
-  "2tIMPNuzjsmhDYAPexZ3FL//2wmUspO8IFgV6dtxQ/PeEMMA3KgqlbbC1j+Qa3bb\n"
-  "bP6MvPJwNQzcmRk13NfIRmPVNnGuV/u3gm3c\n"
-  "-----END CERTIFICATE-----\n"
-  // GTS Root R4
-  "-----BEGIN CERTIFICATE-----\n"
-  "MIICCTCCAY6gAwIBAgINAgPlwGjvYxqccpBQUjAKBggqhkjOPQQDAzBHMQswCQYD\n"
-  "VQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEUMBIG\n"
-  "A1UEAxMLR1RTIFJvb3QgUjQwHhcNMTYwNjIyMDAwMDAwWhcNMzYwNjIyMDAwMDAw\n"
-  "WjBHMQswCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2Vz\n"
-  "IExMQzEUMBIGA1UEAxMLR1RTIFJvb3QgUjQwdjAQBgcqhkjOPQIBBgUrgQQAIgNi\n"
-  "AATzdHOnaItgrkO4NcWBMHtLSZ37wWHO5t5GvWvVYRg1rkDdc/eJkTBa6zzuhXyi\n"
-  "QHY7qca4R9gq55KRanPpsXI5nymfopjTX15YhmUPoYRlBtHci8nHc8iMai/lxKvR\n"
-  "HYqjQjBAMA4GA1UdDwEB/wQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQW\n"
-  "BBSATNbrdP9JNqPV2Py1PsVq8JQdjDAKBggqhkjOPQQDAwNpADBmAjEA6ED/g94D\n"
-  "9J+uHXqnLrmvT/aDHQ4thQEd0dlq7A/Cr8deVl5c1RxYIigL9zC2L7F8AjEA8GE8\n"
-  "p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD\n"
-  "-----END CERTIFICATE-----\n";
+static const char AI_ROOTS_PEM[] = GTS_ROOT_R1_PEM GTS_ROOT_R4_PEM;   // the bytes, moved to gts_roots.h (D-175)
+
+/* CHUTES' ROOT SET (D-175, measured 2026-10-18 - godaddy_roots.h has the chain). llm.chutes.ai serves
+ * *.chutes.ai <- GoDaddy Secure CA G2 <- Go Daddy Root CA G2 today; that wildcard expires 2026-11-30,
+ * and CT logs already show *.chutes.ai from Let's Encrypt (YR2 RSA, YE2 ECDSA) and from Google Trust
+ * Services (WR1, WE1: GTS R1, R4). For Let's Encrypt the Gen-Y roots are pinned as well as X1 + X2
+ * (review 2026-10-18): YR2's issuer is "Root YR" and YE2's "Root YE", so a server that sends the SHORT
+ * chain (leaf <- YR2, without the cross certificate to X1) has no anchor in X1 + X2 alone - measured
+ * for exactly that on the weather's and beaconDB's hosts (isrg_roots.h), which is why they pin YR /
+ * YE. With all seven a renewal from any of those CAs keeps working, whichever chain it is served
+ * with. GoDaddy's next root ("GoDaddy TLS Root CA - R1") is in no macOS store yet, so it is not.
+ * ROOTS ONLY, never a leaf or an intermediate. mbedTLS parses them all on each connection
+ * (setCACert), ~12.6 KB of PEM, into PSRAM (tlsInstallPsramHook). The same rule as Google's: no
+ * override file. tests/test_chutes.cpp checks each SHA-256; tests/check_ai_glue.py pins this list. */
+#define AI_CHUTES_ROOTS_PEM GODADDY_ROOT_G2_PEM ISRG_ROOT_X1_PEM ISRG_ROOT_X2_PEM ISRG_ROOT_YR_PEM ISRG_ROOT_YE_PEM \
+                            GTS_ROOT_R1_PEM GTS_ROOT_R4_PEM
+
+/* THE WEB SEARCH'S ROOT SET (D-176, measured 2026-10-19 - amazon_roots.h has the chain): api.tavily.com
+ * serves *.tavily.com <- Amazon RSA 2048 M01 <- Amazon Root CA 1 (sent as the cross certificate signed by
+ * Starfield Services Root CA - G2). Both roots, as the spec says: M01 anchors at Amazon Root CA 1, and a
+ * server that sends the cross certificate anchors at Starfield G2 even without it. ROOTS ONLY (the leaf
+ * expires 2026-12-15); no override file. tests/test_websearch.cpp checks each SHA-256;
+ * tests/check_ai_glue.py pins this list:
+ *   Amazon Root CA 1                         SHA-256 8E:CD:E6:88:4F:3D:87:B1:...:CB:97:C6:AE:98:19:6E
+ *   Starfield Services Root CA - G2          SHA-256 56:8D:69:05:A2:C8:87:08:...:0F:CB:2A:E6:3E:DA:B5 */
+#define AI_TAVILY_ROOTS_PEM AMAZON_ROOT_CA1_PEM STARFIELD_SERVICES_ROOT_G2_PEM
+/* THE SEARCH'S BUDGET. Tavily's answer gets 6 s (websearch.h WEB_ANSWER_MS: the spec said 3 s; Nick, 2026-10-19:
+ * "I don't mind long search budgets" - a slow answer waits instead of being dropped) - the first-byte wait
+ * after the request, the body inside the whole budget) - measured from the Mac, where the whole TLS 1.2
+ * handshake is ~155 ms. HERE a handshake is software ECC: 2.0-3.1 s on the RSA + P-256 hosts this phone
+ * already talks to (the weather's Open-Meteo and NWS, 2026-10-03), ~4.5 s to Google, 5.8 s on a P-384
+ * chain. A 3 s TOTAL would end nearly every search inside its own handshake. So the handshake has its
+ * own cap (6 s, TCP included) and the whole - DNS to the last byte - is the two together, 12 s at most;
+ * never retried. A search that is not coming costs at most that, and the question goes on without it. */
+#define AI_WEB_CONNECT_MS   6000u
+#define AI_WEB_TOTAL_MS     (AI_WEB_CONNECT_MS + WEB_ANSWER_MS)
+#define AI_WEB_IDLE_MS      1500u           // a body that stops this long (Tavily's comes in one go)
 
 // ── module state ─────────────────────────────────────────────────────────────────────────
 
 /* The question in flight. Written on the loop by aiAsk BEFORE the semaphore is given; the
  * worker's until s_done; read again by the loop only in aiLoopTick. PSRAM. */
 struct AiReq {
-  GeminiConfig cfg;                       // ⚠ a copy of the key: wiped when the question ends
+  /* D-175: CHUTES_GEMINI (Gemini, the path of before) or the Chutes preset asked for - the choice
+   * as it was when asked (aiModelChoice). */
+  int          choice;
+  /* ⚠ a copy of the key: wiped when the question ends. Gemini's file - or, for a Chutes question,
+   * nothing but `lookup` (chutes.txt's), so the lookup's rule reads one place and the Gemini key
+   * never rides along with a Chutes question. */
+  GeminiConfig cfg;
+  ChutesConfig chutes;                    // ⚠ D-175: a copy of the CHUTES key (Chutes questions only): wiped too
   char         question[GEM_Q_MAX];
   int          nCtx;
   char         ctxQ[GEM_CONTEXT][GEM_Q_MAX];
@@ -154,6 +157,12 @@ struct AiReq {
    * weather's handshake was dipping it), so the worker checks the bar itself before the first
    * request. Otherwise aiAsk's check stands, as it always has. */
   bool         heapCheckAtStart;
+  /* D-176: the web search, decided by aiAsk (webDecide) - and a copy of the TAVILY key only when it
+   * searches (⚠ wiped when the question ends, as the others). */
+  WebConfig    web;
+  WebDecision  webDec;                    // what was decided, and why (`ai`)
+  int          webNote;                   // WEB_NOTE_CAP: Auto would have searched, the day's are used
+  bool         webOnly;                   // `ai web test`: the search alone - no lookup, no model, no chat
 };
 /* What the worker found. The worker's while s_busy; the loop's after (it stays for `ai`). */
 struct AiRes {
@@ -173,6 +182,18 @@ struct AiRes {
    * before its lookup read "lookup off, or no keywords"). aiRun sets the "ended before" one first. */
   const char* wikiNot;
   uint32_t largestFloor, minEver, stackFloor;
+  /* D-176: the web search (never its text, its query or the key: codes, sizes, times). */
+  bool     webAsked;                      // its POST was attempted (`ai`'s diagnostics)
+  /* ...and its request was WRITTEN on a live TLS connection (review 2026-10-19): only that one can
+   * have cost a Tavily credit, so only that one is counted. DNS, a refused or failed handshake (a
+   * captive portal against the pinned roots), the heap bar, a Cancel or a call before the send: not. */
+  bool     webSent;
+  int      webCode, webNet, webParsed;    // HTTP, GEM_NET_*, WEB_PARSE_*
+  int      webKept;                       // lines in the block
+  int      webNote;                       // WEB_NOTE_* (NONE: results went, or no search was wanted)
+  uint32_t webMs, webHsMs, webBlockLen;   // the search start to end; TCP + handshake; the block's bytes
+  long     webRespMs;                     // Tavily's response_time, ms (-1 none)
+  int      webCredits;                    // usage.credits (-1 none)
 };
 /* The worker's buffers - PSRAM, so its 8 KB stack is left to the handshake. (The body itself goes
  * into the shared worker's sink: netWorkerSink().) */
@@ -186,8 +207,22 @@ struct AiWork {
   char         kw[WIKI_KW_CAP];             // the question's keywords: ALL that goes to Wikipedia
   char         wikiUrl[WIKI_URL_MAX];
   WikiResult   wiki;                        // the pages read (~3.9 KB)
-  char         bg[WIKI_BG_MAX + 1];         // the background for the question's turn ("" = none)
-  char         src[WIKI_SRC_MAX + 1];       // "Wikipedia: A; B" under the answer (with bg only)
+  /* The background for the question's turn ("" = none): Wikipedia's block (WIKI_BG_MAX, its budget
+   * unchanged) and - D-176 - the web's after it (webAppendBlock; its own WEB_BLOCK_MAX, EXTRA). Never
+   * stored: only the answer is. */
+  char         bg[WIKI_BG_MAX + 2 + WEB_BLOCK_MAX + 1];
+  /* The sources under the answer: "Wikipedia: A; B" (with Wikipedia's background only), then - D-176 -
+   * the web's "Web: a; b" or its note on a line of its own (webAppendLine). "" = no line. */
+  char         src[WIKI_SRC_MAX + 1 + WEB_SRC_MAX + 1];
+  ChutesLadder cl;                          // D-175: a Chutes question's ladder
+  char         auth[CHUTES_AUTH_MAX];       // ⚠ "Bearer <key>": built for ONE request, wiped right after it
+  /* D-176: the web search's. The parser is fed by https_worker's tap as the bytes arrive (~6.6 KB: the
+   * fields it keeps, never the body); the block and its line as built (the block goes into bg). */
+  WebParse     wp;
+  char         web[WEB_BLOCK_MAX + 1];
+  char         webSrc[WEB_SRC_MAX + 1];
+  char         webBody[WEB_BODY_MAX];       // the /search body (the question's words: never logged)
+  char         webAuth[WEB_AUTH_MAX];       // ⚠ "Bearer <tvly key>": built for the ONE request, wiped right after it
 };
 
 static AiReq*   s_req  = NULL;
@@ -212,12 +247,31 @@ struct AiMem {
   GeminiSession session;                 // models that refuse thinkingConfig (this boot)
   bool          retryLoaded;             // "Retry if it times out" read from NVS (once)
   bool          retryOn;                 // ...and what it says (absent = ON)
+  AiChutesKey   ckey;                    // D-175: what the last read of chutes.txt found
+  bool          modelLoaded;             // the model choice read from NVS (once)
+  char          modelStored[16];         // ...its id ("" = never set: the default rule)
+  uint32_t      chutesGone;              // presets that answered "not found" this boot (chutes.h, rule 3)
+  bool          chutesAnswered;          // Chutes has answered this boot (a 429 is load, not the key)
+  /* The provider the last question went to THIS BOOT (CHUTES_BY_*; UNKNOWN until one is asked): a
+   * question to the other starts a topic (chutesTopicDue - the X4's review, 2026-10-19). After a
+   * restart the saved chat's labels say who answered; this says who was ASKED, failures included. */
+  int           topicLast;
+  AiWebKey      wkey;                    // D-176: what the last read of tavily.txt found
+  bool          webLoaded;               // the web search setting read from NVS (once)
+  char          webStored[8];            // ...its id ("" = never set: Auto)
+  bool          dayLoaded;               // the day's counts read from NVS (once)
+  WebDay        day;                     // ...the local day they belong to and the two counts
 };
 static AiMem* s_m = NULL;
 
 static bool memOk() {
   if (!s_m) {
     s_m = (AiMem*)heap_caps_calloc(1, sizeof(AiMem), MALLOC_CAP_SPIRAM);
+    if (s_m) {
+      s_m->ckey.preset = -1;                // no chutes.txt model= until one is read
+      s_m->topicLast = CHUTES_BY_UNKNOWN;   // nothing asked this boot
+      s_m->day.day = -1;                    // D-176: no day's counts until NVS is read
+    }
   }
   return s_m != NULL;
 }
@@ -226,6 +280,14 @@ static GeminiConfig* s_cfg = NULL;           // the last GOOD gemini.txt (PSRAM)
 static bool          s_haveGood = false;
 static int           s_keyLogged = -1;       // the state last logged (log once per change)
 static int           s_keyMisses = 0;        // reloads in a row that found no gemini.txt
+static ChutesConfig* s_ccfg = NULL;          // D-175: the last GOOD chutes.txt (PSRAM)
+static bool          s_cHaveGood = false;
+static int           s_cKeyLogged = -1;
+static int           s_cKeyMisses = 0;
+static WebConfig*    s_wcfg = NULL;          // D-176: the last GOOD tavily.txt (PSRAM)
+static bool          s_wHaveGood = false;
+static int           s_wKeyLogged = -1;
+static int           s_wKeyMisses = 0;
 
 static GeminiChat*   s_chat = NULL;          // PSRAM, ~94 KB
 static bool          s_chatLoaded = false;
@@ -313,6 +375,17 @@ static bool writeFile(const char* path, const char* tmp, const char* data, size_
   return SD.rename(tmp, path);
 }
 
+/* D-175: the short name of the model being asked ("V4 Flash"), for the countdown's row. */
+static void progShort(const char* shortName) {
+  if (!s_m) {
+    return;
+  }
+  portENTER_CRITICAL(&s_mux);
+  strlcpy(s_m->prog.shortName, shortName ? shortName : "", sizeof(s_m->prog.shortName));
+  s_m->prog.gen++;
+  portEXIT_CRITICAL(&s_mux);
+}
+
 static void progSet(const char* stage, const char* label, uint32_t waitUntil, int attempt) {
   if (!s_m) {
     return;
@@ -342,10 +415,181 @@ static void keyInfoFrom(const GeminiConfig* c, int rc) {
   s_m->key.lookup = c->lookup;
 }
 
+/* D-175: chutes.txt, the same pass and the same rules as gemini.txt below - exists() twice 20 ms
+ * apart, only a GOOD read replaces the kept key, one missed read keeps it (two in a row: gone), the
+ * read buffer PSRAM and wiped (geminiWipe: a memset right before free() is a dead store the compiler
+ * drops - review 2026-10-18), the state logged once per change and never the key. Its path ONLY: no
+ * root copy. */
+static void chutesKeyLine(int rc) {
+  chutesConfigLine(s_ccfg, rc, s_m->ckey.line, sizeof(s_m->ckey.line));
+  s_m->ckey.preset = s_ccfg->preset;
+  s_m->ckey.lookup = s_ccfg->lookup;
+}
+
+static void chutesKeyReload() {
+  if (!s_ccfg) {
+    s_ccfg = (ChutesConfig*)heap_caps_calloc(1, sizeof(ChutesConfig), MALLOC_CAP_SPIRAM);
+    if (!s_ccfg) {
+      s_m->ckey.state = AI_KEY_UNREADABLE;
+      s_m->ckey.usable = false;
+      strlcpy(s_m->ckey.line, "no memory to read the key file", sizeof(s_m->ckey.line));
+      return;
+    }
+  }
+  bool there = false;
+  for (int tries = 0; tries < 2 && !there; tries++) {
+    if (tries) {
+      delay(20);
+    }
+    there = SD.exists(AI_CHUTES_FILE);
+  }
+  s_cKeyMisses = there ? 0 : (s_cKeyMisses < 2 ? s_cKeyMisses + 1 : 2);
+  if (!there && s_cHaveGood && s_cKeyMisses < 2) {
+    s_m->ckey.state = AI_KEY_UNREADABLE;          // a card hiccup until the next reload agrees
+    s_m->ckey.usable = true;
+    chutesKeyLine(CHUTES_CFG_OK);
+  } else if (!there) {
+    s_cHaveGood = false;
+    chutesParseConfig("", 0, s_ccfg);             // no key; the defaults, for the line
+    chutesKeyLine(CHUTES_CFG_NO_KEY);
+    s_m->ckey.state = AI_KEY_NONE;
+    s_m->ckey.usable = false;
+    s_m->ckey.path = NULL;
+  } else {
+    char* buf = (char*)heap_caps_malloc(AI_KEY_READ_MAX, MALLOC_CAP_SPIRAM);   // ⚠ the key: wiped after
+    const int n = buf ? readSmall(AI_CHUTES_FILE, buf, AI_KEY_READ_MAX) : -1;
+    s_m->ckey.path = AI_CHUTES_FILE;
+    if (n < 0) {
+      s_m->ckey.state = AI_KEY_UNREADABLE;        // NOT "no key": the last good one stays
+      s_m->ckey.usable = s_cHaveGood;
+      if (s_cHaveGood) {
+        chutesKeyLine(CHUTES_CFG_OK);
+      } else {
+        strlcpy(s_m->ckey.line, "key: the file could not be read - try again", sizeof(s_m->ckey.line));
+      }
+    } else {
+      ChutesConfig* c = (ChutesConfig*)heap_caps_calloc(1, sizeof(ChutesConfig), MALLOC_CAP_SPIRAM);
+      if (!c) {
+        s_m->ckey.state = AI_KEY_UNREADABLE;
+        s_m->ckey.usable = s_cHaveGood;
+      } else {
+        const int rc = chutesParseConfig(buf, (size_t)n, c);
+        chutesConfigLine(c, rc, s_m->ckey.line, sizeof(s_m->ckey.line));
+        s_m->ckey.preset = c->preset;
+        s_m->ckey.lookup = c->lookup;
+        if (rc == CHUTES_CFG_OK) {
+          memcpy(s_ccfg, c, sizeof(*s_ccfg));
+          s_cHaveGood = true;
+          s_m->ckey.state = AI_KEY_OK;
+          s_m->ckey.usable = true;
+        } else {
+          memset(s_ccfg, 0, sizeof(*s_ccfg));
+          s_ccfg->preset = -1;
+          s_cHaveGood = false;
+          s_m->ckey.state = rc == CHUTES_CFG_NO_KEY ? AI_KEY_NONE : AI_KEY_BAD;
+          s_m->ckey.usable = false;
+        }
+        geminiWipe(c, sizeof(*c));
+        free(c);
+      }
+    }
+    if (buf) {
+      geminiWipe(buf, AI_KEY_READ_MAX);
+      free(buf);
+    }
+  }
+  if (s_m->ckey.state != s_cKeyLogged) {
+    s_cKeyLogged = s_m->ckey.state;
+    // ⚠ Never the key: its length, the preset and where the file is.
+    log_e("AI: chutes %s (%s)", s_m->ckey.line, s_m->ckey.path ? s_m->ckey.path : "no chutes.txt");
+  }
+}
+
+/* D-176: tavily.txt, the same pass and the same rules as chutes.txt above - exists() twice 20 ms apart,
+ * only a GOOD read replaces the kept key, one missed read keeps it (two in a row: gone), the read buffer
+ * PSRAM and wiped (geminiWipe), the state logged once per change and never the key. Its path ONLY. */
+static void webKeyReload() {
+  if (!s_wcfg) {
+    s_wcfg = (WebConfig*)heap_caps_calloc(1, sizeof(WebConfig), MALLOC_CAP_SPIRAM);
+    if (!s_wcfg) {
+      s_m->wkey.state = AI_KEY_UNREADABLE;
+      s_m->wkey.usable = false;
+      strlcpy(s_m->wkey.line, "no memory to read the key file", sizeof(s_m->wkey.line));
+      return;
+    }
+  }
+  bool there = false;
+  for (int tries = 0; tries < 2 && !there; tries++) {
+    if (tries) {
+      delay(20);
+    }
+    there = SD.exists(AI_TAVILY_FILE);
+  }
+  s_wKeyMisses = there ? 0 : (s_wKeyMisses < 2 ? s_wKeyMisses + 1 : 2);
+  if (!there && s_wHaveGood && s_wKeyMisses < 2) {
+    s_m->wkey.state = AI_KEY_UNREADABLE;          // a card hiccup until the next reload agrees
+    s_m->wkey.usable = true;
+    webConfigLine(s_wcfg, WEB_CFG_OK, s_m->wkey.line, sizeof(s_m->wkey.line));
+  } else if (!there) {
+    s_wHaveGood = false;
+    memset(s_wcfg, 0, sizeof(*s_wcfg));
+    webConfigLine(s_wcfg, WEB_CFG_NO_KEY, s_m->wkey.line, sizeof(s_m->wkey.line));
+    s_m->wkey.state = AI_KEY_NONE;
+    s_m->wkey.usable = false;
+    s_m->wkey.path = NULL;
+  } else {
+    char* buf = (char*)heap_caps_malloc(AI_KEY_READ_MAX, MALLOC_CAP_SPIRAM);   // ⚠ the key: wiped after
+    const int n = buf ? readSmall(AI_TAVILY_FILE, buf, AI_KEY_READ_MAX) : -1;
+    s_m->wkey.path = AI_TAVILY_FILE;
+    if (n < 0) {
+      s_m->wkey.state = AI_KEY_UNREADABLE;        // NOT "no key": the last good one stays
+      s_m->wkey.usable = s_wHaveGood;
+      if (s_wHaveGood) {
+        webConfigLine(s_wcfg, WEB_CFG_OK, s_m->wkey.line, sizeof(s_m->wkey.line));
+      } else {
+        strlcpy(s_m->wkey.line, "key: the file could not be read - try again", sizeof(s_m->wkey.line));
+      }
+    } else {
+      WebConfig* c = (WebConfig*)heap_caps_calloc(1, sizeof(WebConfig), MALLOC_CAP_SPIRAM);
+      if (!c) {
+        s_m->wkey.state = AI_KEY_UNREADABLE;
+        s_m->wkey.usable = s_wHaveGood;
+      } else {
+        const int rc = webParseConfig(buf, (size_t)n, c);
+        webConfigLine(c, rc, s_m->wkey.line, sizeof(s_m->wkey.line));
+        if (rc == WEB_CFG_OK) {
+          memcpy(s_wcfg, c, sizeof(*s_wcfg));
+          s_wHaveGood = true;
+          s_m->wkey.state = AI_KEY_OK;
+          s_m->wkey.usable = true;
+        } else {
+          memset(s_wcfg, 0, sizeof(*s_wcfg));
+          s_wHaveGood = false;
+          s_m->wkey.state = rc == WEB_CFG_NO_KEY ? AI_KEY_NONE : AI_KEY_BAD;
+          s_m->wkey.usable = false;
+        }
+        geminiWipe(c, sizeof(*c));
+        free(c);
+      }
+    }
+    if (buf) {
+      geminiWipe(buf, AI_KEY_READ_MAX);
+      free(buf);
+    }
+  }
+  if (s_m->wkey.state != s_wKeyLogged) {
+    s_wKeyLogged = s_m->wkey.state;
+    // ⚠ Never the key: its length and where the file is.
+    log_e("AI: tavily %s (%s)", s_m->wkey.line, s_m->wkey.path ? s_m->wkey.path : "no tavily.txt");
+  }
+}
+
 void aiKeyReload() {
   if (!memOk()) {
     return;
   }
+  chutesKeyReload();                        // D-175: the second key file, the same rules
+  webKeyReload();                           // D-176: the third (the web search's)
   if (!s_cfg) {
     s_cfg = (GeminiConfig*)heap_caps_calloc(1, sizeof(GeminiConfig), MALLOC_CAP_SPIRAM);
     if (!s_cfg) {
@@ -384,7 +628,7 @@ void aiKeyReload() {
     s_m->key.usable = false;
     s_m->key.path = NULL;
   } else {
-    // PSRAM, and wiped after: the key is in these bytes.
+    // PSRAM, and wiped after (geminiWipe - a memset before free() is dropped): the key is in these bytes.
     char* buf = (char*)heap_caps_malloc(AI_KEY_READ_MAX, MALLOC_CAP_SPIRAM);
     const int n = buf ? readSmall(path, buf, AI_KEY_READ_MAX) : -1;
     if (n < 0) {
@@ -418,12 +662,12 @@ void aiKeyReload() {
           s_m->key.state = rc == GEM_CFG_NO_KEY ? AI_KEY_NONE : AI_KEY_BAD;
           s_m->key.usable = false;
         }
-        memset(c, 0, sizeof(*c));
+        geminiWipe(c, sizeof(*c));
         free(c);
       }
     }
     if (buf) {
-      memset(buf, 0, AI_KEY_READ_MAX);
+      geminiWipe(buf, AI_KEY_READ_MAX);
       free(buf);
     }
   }
@@ -441,6 +685,25 @@ void aiKeyInfo(AiKeyInfo* out) {
     return;
   }
   *out = s_m->key;
+}
+
+void aiChutesKeyInfo(AiChutesKey* out) {
+  if (!memOk()) {
+    memset(out, 0, sizeof(*out));
+    out->preset = -1;
+    strlcpy(out->line, "no memory", sizeof(out->line));
+    return;
+  }
+  *out = s_m->ckey;
+}
+
+void aiWebKeyInfo(AiWebKey* out) {
+  if (!memOk()) {
+    memset(out, 0, sizeof(*out));
+    strlcpy(out->line, "no memory", sizeof(out->line));
+    return;
+  }
+  *out = s_m->wkey;
 }
 
 // ── the chat and the remembered limits ────────────────────────────────────────────────────
@@ -564,6 +827,23 @@ void aiChatNewTopic() {
   }
 }
 
+bool aiTopicDue(bool* otherProvider) {
+  if (otherProvider) {
+    *otherProvider = false;
+  }
+  const GeminiChat* c = aiRequestActive() ? s_chat : chatGet();
+  if (!c || !memOk()) {
+    return true;
+  }
+  const int64_t now = utcNow();
+  /* aiAsk's own rule with aiAsk's own inputs: the choice in use, this boot's last provider. */
+  const bool due = chutesTopicDue(c, now, aiModelChoice(), s_m->topicLast);
+  if (otherProvider) {
+    *otherProvider = due && !geminiChatTopicDue(c, now);   // only the provider's rule says so
+  }
+  return due;
+}
+
 void aiChatClear() {
   if (aiRequestActive()) {
     s_clearAfter = true;                   // the question out is dropped when it lands
@@ -647,6 +927,11 @@ size_t aiQuotaNote(char* out, size_t cap) {
 
 #define AI_PREFS_NS     "wpmesh"                 // the firmware's settings namespace (prefs_almanac.cpp)
 #define AI_PREFS_RETRY  "ai_retry"               // uchar: 1 on, 0 off; absent = ON
+#define AI_PREFS_MODEL  "ai_model"               // D-175: string, a choice id (chutes.h); absent = the default rule
+#define AI_PREFS_WEB    "ai_web"                 // D-176: string, a web search mode id (websearch.h); absent = Auto
+#define AI_PREFS_WEBD   "ai_webd"                // D-176: int, the local day the counts below belong to
+#define AI_PREFS_WEBN   "ai_webn"                // D-176: ushort, Auto's searches that day (WEB_DAILY_AUTO at most)
+#define AI_PREFS_WEBO   "ai_webo"                // D-176: ushort, the forced and Always ones that day
 
 bool aiRetryTimeouts() {
   if (!memOk()) {
@@ -679,6 +964,187 @@ void aiSetRetryTimeouts(bool on) {
     log_e("AI: could not open NVS '%s' to save %s=%d (kept for this boot only)", AI_PREFS_NS, AI_PREFS_RETRY,
           on ? 1 : 0);
   }
+}
+
+// ── the model choice (D-175) ─────────────────────────────────────────────────────────────
+
+/* NVS "wpmesh" / "ai_model", read once. NVS key names are 15 characters at most ("ai_model" is 8).
+ * isKey() first: getString() of a key that was never written logs an error line (Preferences.cpp). */
+static void modelLoad() {
+  if (s_m->modelLoaded) {
+    return;
+  }
+  s_m->modelLoaded = true;
+  s_m->modelStored[0] = '\0';
+  Preferences p;
+  /* Read-only begin() FAILS when the namespace was never written (a new phone): the default rule. */
+  if (p.begin(AI_PREFS_NS, true)) {
+    if (p.isKey(AI_PREFS_MODEL)) {
+      p.getString(AI_PREFS_MODEL, s_m->modelStored, sizeof(s_m->modelStored));
+    }
+    p.end();
+  }
+}
+
+int aiModelChoice() {
+  if (!memOk()) {
+    return CHUTES_GEMINI;                          // the phone of before
+  }
+  modelLoad();
+  /* Set: that, whatever the keys. Unset: v4flash (or chutes.txt's model=) with a usable Chutes key,
+   * else Gemini - chutes.h's rule, host-tested. */
+  return chutesChoiceResolve(s_m->modelStored, s_m->ckey.usable, s_m->ckey.preset);
+}
+
+bool aiModelChoiceStored() {
+  if (!memOk()) {
+    return false;
+  }
+  modelLoad();
+  return chutesChoiceFind(s_m->modelStored) != CHUTES_NOT_A_CHOICE;
+}
+
+void aiSetModelChoice(int choice) {
+  if (!memOk() || (choice != CHUTES_GEMINI && !chutesPreset(choice))) {
+    return;                                        // the allowlist: nothing else is ever stored
+  }
+  s_m->modelLoaded = true;
+  strlcpy(s_m->modelStored, chutesChoiceId(choice), sizeof(s_m->modelStored));
+  Preferences p;
+  if (p.begin(AI_PREFS_NS, false)) {
+    p.putString(AI_PREFS_MODEL, s_m->modelStored);
+    p.end();
+  } else {
+    log_e("AI: could not open NVS '%s' to save %s=%s (kept for this boot only)", AI_PREFS_NS, AI_PREFS_MODEL,
+          s_m->modelStored);
+  }
+}
+
+void aiClearModelChoice() {
+  if (!memOk()) {
+    return;
+  }
+  s_m->modelLoaded = true;
+  s_m->modelStored[0] = '\0';
+  Preferences p;
+  if (p.begin(AI_PREFS_NS, false)) {
+    if (p.isKey(AI_PREFS_MODEL)) {
+      p.remove(AI_PREFS_MODEL);
+    }
+    p.end();
+  }
+}
+
+bool aiChoiceUsable(int choice) {
+  if (!memOk()) {
+    return false;
+  }
+  return chutesPreset(choice) ? s_m->ckey.usable : s_m->key.usable;
+}
+
+// ── the web search's setting and the day's counts (D-176) ─────────────────────────────────
+
+/* NVS "wpmesh" / "ai_web" (a mode id: websearch.h), "ai_webd" (the local day of the counts, days since
+ * 1970), "ai_webn" (Auto's that day) and "ai_webo" (forced and Always ones) - every name 15 characters
+ * at most. isKey() first, as modelLoad's (an absent key logs an error line in Preferences.cpp). */
+static void webModeLoad() {
+  if (s_m->webLoaded) {
+    return;
+  }
+  s_m->webLoaded = true;
+  s_m->webStored[0] = '\0';
+  Preferences p;
+  if (p.begin(AI_PREFS_NS, true)) {                // read-only begin() fails on a new phone: the default
+    if (p.isKey(AI_PREFS_WEB)) {
+      p.getString(AI_PREFS_WEB, s_m->webStored, sizeof(s_m->webStored));
+    }
+    p.end();
+  }
+}
+
+int aiWebMode() {
+  if (!memOk()) {
+    return WEB_AUTO;
+  }
+  webModeLoad();
+  return webModeResolve(s_m->webStored);           // unset (or a value this firmware does not know): Auto
+}
+
+bool aiWebModeStored() {
+  if (!memOk()) {
+    return false;
+  }
+  webModeLoad();
+  return webModeFind(s_m->webStored) >= 0;
+}
+
+void aiSetWebMode(int mode) {
+  if (!memOk() || mode < 0 || mode >= WEB_MODES) {
+    return;                                        // the allowlist: nothing else is ever stored
+  }
+  s_m->webLoaded = true;
+  strlcpy(s_m->webStored, webModeId(mode), sizeof(s_m->webStored));
+  Preferences p;
+  if (p.begin(AI_PREFS_NS, false)) {
+    p.putString(AI_PREFS_WEB, s_m->webStored);
+    p.end();
+  } else {
+    log_e("AI: could not open NVS '%s' to save %s=%s (kept for this boot only)", AI_PREFS_NS, AI_PREFS_WEB,
+          s_m->webStored);
+  }
+}
+
+bool aiWebUsable() {
+  return memOk() && s_m->wkey.usable && s_wcfg && s_wHaveGood;
+}
+
+static void dayLoad() {
+  if (s_m->dayLoaded) {
+    return;
+  }
+  s_m->dayLoaded = true;
+  s_m->day.day = -1;
+  s_m->day.autoN = 0;
+  s_m->day.otherN = 0;
+  Preferences p;
+  if (p.begin(AI_PREFS_NS, true)) {
+    if (p.isKey(AI_PREFS_WEBD)) {
+      s_m->day.day = p.getInt(AI_PREFS_WEBD, -1);
+      s_m->day.autoN = p.isKey(AI_PREFS_WEBN) ? (int)p.getUShort(AI_PREFS_WEBN, 0) : 0;
+      s_m->day.otherN = p.isKey(AI_PREFS_WEBO) ? (int)p.getUShort(AI_PREFS_WEBO, 0) : 0;
+    }
+    p.end();
+  }
+}
+
+static void daySave() {
+  Preferences p;
+  if (p.begin(AI_PREFS_NS, false)) {
+    p.putInt(AI_PREFS_WEBD, (int32_t)s_m->day.day);
+    p.putUShort(AI_PREFS_WEBN, (uint16_t)s_m->day.autoN);
+    p.putUShort(AI_PREFS_WEBO, (uint16_t)s_m->day.otherN);
+    p.end();
+  } else {
+    log_e("AI: could not open NVS '%s' to save the web search counts (kept for this boot only)", AI_PREFS_NS);
+  }
+}
+
+/* The local day now: a trusted clock only (utcNow() is 0 otherwise: -1, and the counts stay on the day
+ * they hold - the cap never resets on an unknown day). */
+static int32_t webToday() {
+  return webLocalDay(utcNow(), tzNow());
+}
+
+void aiWebToday(int* autoN, int* otherN) {
+  if (!memOk()) {
+    *autoN = *otherN = 0;
+    return;
+  }
+  dayLoad();
+  WebDay d = s_m->day;
+  webDayRoll(&d, webToday());
+  *autoN = d.autoN;
+  *otherN = d.otherN;
 }
 
 // ── the wire (WORKER) ────────────────────────────────────────────────────────────────────
@@ -726,6 +1192,59 @@ static int postOnce(const char* model, size_t bodyLen, size_t* got, int* net) {
   q.cap = AI_SINK_CAP;
   NetHttpRes r;
   int code = netHttps(&q, &r);
+  if (r.largestAfterSend && r.largestAfterSend < s_res->largestFloor) {
+    s_res->largestFloor = r.largestAfterSend;
+  }
+  *net = r.net;
+  *got = r.got;
+  if (code > 0 && r.overflow) {
+    *net = GEM_NET_TOO_BIG;
+    code = 0;
+  }
+  return code;
+}
+
+/* D-175: one POST to Chutes, through the same exchange as Gemini's (netHttps): DNS first, a fresh
+ * client with the Chutes ROOT SET pinned (AI_CHUTES_ROOTS_PEM), the heap bar right before the
+ * handshake, the client's own cancellable first-byte wait - the PRESET's (60 s, 120 s for the thinking
+ * ones: the whole answer is written before a byte comes) - Cancel and a call, the shared sink.
+ * ⚠ THE KEY'S ONLY WAY OUT: `Authorization: Bearer <key>`, built here into PSRAM (chutesAuthHeader:
+ * nothing that is not cpk_... is ever sent as one), to CHUTES_HOST only (a constant URL; HTTPClient
+ * follows no redirect unless told to, and nothing here tells it), and WIPED as soon as netHttps
+ * returns (HTTPClient's own header copy dies with it). The HTTP code (> 0), or 0 with *net saying
+ * what failed; past the sink is GEM_NET_TOO_BIG, as Gemini's. */
+static int postOnceChutes(const ChutesPreset* p, size_t bodyLen, size_t* got, int* net) {
+  *got = 0;
+  *net = GEM_NET_OK;
+  if (chutesAuthHeader(s_req->chutes.key, s_work->auth, sizeof(s_work->auth)) == 0 || !s_work->auth[0]) {
+    *net = GEM_NET_NOMEM;                          // no key that can go (chutesParseConfig refused it first)
+    return 0;
+  }
+  NetHttpReq q;
+  memset(&q, 0, sizeof(q));
+  q.method = "POST";
+  q.host = CHUTES_HOST;
+  q.url = CHUTES_URL;
+  q.rootsPem = AI_CHUTES_ROOTS_PEM;
+  q.userAgent = AI_USER_AGENT;
+  q.hdrName[0] = "Content-Type";
+  q.hdrValue[0] = "application/json";
+  q.hdrName[1] = "Authorization";                // ⚠ a header, never the URL - and only to CHUTES_HOST
+  q.hdrValue[1] = s_work->auth;
+  q.body = (const uint8_t*)s_body;
+  q.bodyLen = bodyLen;
+  q.connectMs = AI_CONNECT_MS;
+  q.heapCheck = true;                            // the bar before EVERY handshake (Gemini's rule)
+  q.timeoutMs = p->waitMs;
+  q.waitSliceMs = AI_SLICE_MS;
+  q.bodyIdleMs = AI_BODY_IDLE_MS;
+  q.cancel = &s_cancel;
+  q.stopFn = tileFetchCallRecent;
+  q.sink = netWorkerSink();
+  q.cap = AI_SINK_CAP;
+  NetHttpRes r;
+  int code = netHttps(&q, &r);
+  memset(s_work->auth, 0, sizeof(s_work->auth));
   if (r.largestAfterSend && r.largestAfterSend < s_res->largestFloor) {
     s_res->largestFloor = r.largestAfterSend;
   }
@@ -807,8 +1326,8 @@ static void __attribute__((noinline)) aiWikiLookup(const AiReq* q, AiRes* r) {
   r->wikiWhy[0] = '\0';
   r->wikiPages = 0;
   if (!q->cfg.lookup) {
-    r->wikiNot = "lookup=off in gemini.txt";
-    return;                                        // gemini.txt: lookup=off
+    r->wikiNot = q->choice == CHUTES_GEMINI ? "lookup=off in gemini.txt" : "lookup=off in chutes.txt";
+    return;                                        // the key file's lookup=off (a Chutes question: chutes.txt's)
   }
   /* A follow-up ("and when?") borrows from the topic's newest question that named something
    * (round 3: wikiKeywords walks back) - the questions sent as context, oldest first; none when
@@ -888,6 +1407,243 @@ static void __attribute__((noinline)) aiWikiLookup(const AiReq* q, AiRes* r) {
   r->wikiPages = used;
 }
 
+/* D-176: every de-chunked body byte of the search, as it arrives (https_worker's tap), into the
+ * streaming parser - which keeps the fields it needs and never the body (the sink keeps nothing:
+ * cap 0). On the worker, inside netHttps's body read: a cheap state machine, no allocation. */
+static void webTap(void* ctx, const char* p, size_t n) {
+  webParseFeed((WebParse*)ctx, p, n);
+}
+
+/* THE WEB SEARCH (WORKER; D-176, websearch.h). Once a question, AFTER the Wikipedia lookup and before
+ * either provider - never per retry, never retried: ONE POST to api.tavily.com. PRIVACY: the body is
+ * the question (whitespace collapsed, cut at a word to 200 bytes) and the fixed fields - no chat, no
+ * other key. ⚠ THE TAVILY KEY'S ONLY WAY OUT: `Authorization: Bearer <key>`, built here into PSRAM
+ * (webAuthHeader: nothing that is not tvly-... is ever sent as one), to WEB_HOST only (a constant URL;
+ * HTTPClient follows no redirect unless told to, and nothing here tells it) and WIPED as soon as
+ * netHttps returns. The reply goes through the tap into the parser as it arrives; the block is built
+ * from what it kept and goes AFTER Wikipedia's in s_work->bg; the "Web: a; b" line - or the note that
+ * says why nothing went ("Web: search unavailable") - after the Wikipedia line in s_work->src. Any
+ * failure is the note and Wikipedia alone: the question is asked all the same. No text of Tavily's is
+ * ever kept, shown or logged. noinline: its request and the block's locals are not aiRun's frame under
+ * every handshake that follows. */
+static void __attribute__((noinline)) aiWebSearch(const AiReq* q, AiRes* r) {
+  s_work->web[0] = '\0';
+  s_work->webSrc[0] = '\0';
+  if (q->webOnly) {
+    s_work->bg[0] = '\0';                          // `ai web test`: no lookup ran to clear them
+    s_work->src[0] = '\0';
+  }
+  r->webNote = q->webNote;                         // WEB_NOTE_CAP, or NONE until the search says
+  if (!q->webDec.search) {
+    if (r->webNote != WEB_NOTE_NONE) {
+      webAppendLine(s_work->src, sizeof(s_work->src), webNoteLine(r->webNote));
+    }
+    return;
+  }
+  const size_t bn = webBuildRequest(q->question, q->webDec.topic, q->webDec.timeRange, s_work->webBody,
+                                    sizeof(s_work->webBody));
+  if (bn == 0 || bn >= sizeof(s_work->webBody) || webAuthHeader(q->web.key, s_work->webAuth, sizeof(s_work->webAuth)) == 0 ||
+      !s_work->webAuth[0]) {
+    memset(s_work->webAuth, 0, sizeof(s_work->webAuth));
+    r->webNote = WEB_NOTE_UNAVAILABLE;             // no body or no key that can go (webParseConfig refused it first)
+    webAppendLine(s_work->src, sizeof(s_work->src), webNoteLine(r->webNote));
+    return;
+  }
+  progSet(WEB_STAGE, NULL, 0, -1);
+  webParseInit(&s_work->wp);
+  const uint32_t t0 = millis();
+  NetHttpReq w;
+  memset(&w, 0, sizeof(w));
+  w.method = "POST";
+  w.host = WEB_HOST;
+  w.url = WEB_URL;                                 // ⚠ a constant: the Bearer never goes anywhere else
+  w.rootsPem = AI_TAVILY_ROOTS_PEM;
+  w.userAgent = AI_USER_AGENT;
+  w.hdrName[0] = "Content-Type";
+  w.hdrValue[0] = "application/json";
+  w.hdrName[1] = "Authorization";                  // ⚠ a header, never the URL or the body - only to WEB_HOST
+  w.hdrValue[1] = s_work->webAuth;
+  w.body = (const uint8_t*)s_work->webBody;
+  w.bodyLen = bn;
+  w.connectMs = AI_WEB_CONNECT_MS;                 // TCP + the handshake, timed alone (connectFirst)
+  w.timeoutMs = WEB_ANSWER_MS;                     // Tavily's answer: the client's own first-byte wait
+  w.waitSliceMs = AI_SLICE_MS;                     // ...in slices: Cancel and a call end it
+  w.bodyIdleMs = AI_WEB_IDLE_MS;
+  w.totalMs = AI_WEB_TOTAL_MS;                     // the whole, DNS to the last byte
+  w.connectFirst = true;
+  w.heapCheck = true;                              // the bar again before THIS handshake
+  w.cancel = &s_cancel;
+  w.stopFn = tileFetchCallRecent;                  // a call rang in: stop (aiRun then says so)
+  w.sink = netWorkerSink();
+  w.cap = 0;                                       // nothing raw is kept: the tap parses it as it comes
+  w.tap = webTap;
+  w.tapCtx = &s_work->wp;
+  NetHttpRes res;
+  const int code = netHttps(&w, &res);
+  memset(s_work->webAuth, 0, sizeof(s_work->webAuth));
+  r->webAsked = true;
+  r->webSent = res.largestAfterSend != 0 || code > 0;   // set only once sendRequest ran (https_worker.h)
+  r->webMs = millis() - t0;
+  r->webHsMs = res.hsMs;
+  r->webCode = code;
+  r->webNet = res.net;
+  if (res.largestAfterSend && res.largestAfterSend < r->largestFloor) {
+    r->largestFloor = res.largestAfterSend;
+  }
+  if (s_cancel || tileFetchCallRecent()) {
+    return;                                        // aiRun ends the question on these: nothing to add
+  }
+  const int parsed = code > 0 ? webParseFinish(&s_work->wp) : WEB_PARSE_BAD;
+  r->webParsed = parsed;
+  r->webRespMs = s_work->wp.responseMs;
+  r->webCredits = s_work->wp.credits;
+  int note = webNoteKind(code, res.net, code > 0 ? &s_work->wp : NULL, parsed);
+  if (note == WEB_NOTE_NONE) {
+    /* "searched <date>": the phone's local day from a trusted clock, else the reply's own Date header
+     * (UTC), else "just now". */
+    char date[16];
+    if (!webDateLocal(utcNow(), q->tzS, date, sizeof(date))) {
+      webDateOf(res.date, date, sizeof(date));
+    }
+    int used = 0;
+    const size_t n = webBuildBlock(&s_work->wp, date, WEB_BLOCK_MAX, s_work->web, sizeof(s_work->web), s_work->webSrc,
+                                   sizeof(s_work->webSrc), &used);
+    r->webKept = used;
+    r->webBlockLen = (uint32_t)n;
+    if (n == 0 || !webAppendBlock(s_work->bg, sizeof(s_work->bg), s_work->web)) {
+      note = WEB_NOTE_NOTHING;                     // nothing fitted (all or nothing)
+      r->webKept = 0;
+    }
+    if (!q->webOnly) {
+      /* A question's block lives on in bg for its requests only: this copy is wiped now, so no
+       * question's block outlives it where the bench could print it (review 2026-10-19). */
+      memset(s_work->web, 0, sizeof(s_work->web));
+    }
+  }
+  r->webNote = note;
+  webAppendLine(s_work->src, sizeof(s_work->src), note == WEB_NOTE_NONE ? s_work->webSrc : webNoteLine(note));
+}
+
+/* D-175: a CHUTES question's requests, after aiRun's gates and its one Wikipedia lookup - Gemini's
+ * loop in shape (a LOOP, never recursion; the date per request; the background in the question's
+ * turn; Cancel and a call ended before the ladder can call them a timeout; the answer scrubbed), with
+ * chutes.h's ladder. noinline: its frame is not aiRun's under every handshake. */
+static void __attribute__((noinline)) aiRunChutes(AiReq* q, AiRes* r, const GeminiTurnPair* ctx) {
+  ChutesLadder& l = s_work->cl;
+  char* label = s_work->label;
+  const ChutesPreset* p = chutesPreset(l.cur);
+  strlcpy(label, p->label, GEM_LABEL_MAX);
+  progShort(p->shortName);
+  if (l.onFallback) {
+    progSet(l.note, label, 0, 0);                // the asked preset was seen gone this boot
+  } else {
+    snprintf(s_work->stage, sizeof(s_work->stage), q->musicPaused ? "Music paused - asking %s..." : "Asking %s...",
+             p->shortName);
+    progSet(s_work->stage, label, 0, 0);
+  }
+  ChutesReply* rep = (ChutesReply*)heap_caps_calloc(1, sizeof(ChutesReply), MALLOC_CAP_SPIRAM);
+  if (!rep) {
+    r->net = GEM_NET_NOMEM;
+    chutesFailText(0, GEM_NET_NOMEM, NULL, NULL, q->chutes.key, r->fail, sizeof(r->fail));
+    return;
+  }
+  uint32_t seed = 0;
+  for (;;) {
+    if (s_cancel) {
+      r->cancelled = true;
+      break;
+    }
+    if (r->attempts > 0 && tileFetchCallRecent()) {
+      strlcpy(r->fail, "A call came in - ask again after it", sizeof(r->fail));
+      break;
+    }
+    p = chutesPreset(l.cur);
+    /* The system text NOW: today's date from a trusted clock only (utcNow() is 0 otherwise), then the
+     * Chutes line. The background goes in the QUESTION'S turn, never in here. */
+    chutesSystemText(utcNow(), q->tzS, q->zone, l.cur, s_work->sys, sizeof(s_work->sys));
+    seed = chutesSeed(esp_random(), seed);       // a retry is never the same draw
+    const size_t n = chutesBuildRequest(l.cur, ctx, q->nCtx, q->question, s_work->bg, s_work->sys, seed, NULL, 0);
+    if (n + 1 > s_bodyCap) {
+      free(s_body);
+      s_bodyCap = 0;
+      s_body = (char*)heap_caps_malloc(n + 1, MALLOC_CAP_SPIRAM);
+      if (!s_body) {
+        r->net = GEM_NET_NOMEM;
+        chutesFailText(0, GEM_NET_NOMEM, NULL, &l, q->chutes.key, r->fail, sizeof(r->fail));
+        break;
+      }
+      s_bodyCap = n + 1;
+    }
+    chutesBuildRequest(l.cur, ctx, q->nCtx, q->question, s_work->bg, s_work->sys, seed, s_body, s_bodyCap);
+    const uint32_t ta = millis();
+    size_t got = 0;
+    int net = GEM_NET_OK;
+    const int code = postOnceChutes(p, n, &got, &net);
+    r->lastMs = millis() - ta;
+    r->lastCode = code;
+    r->net = net;
+    r->attempts++;
+    r->bodyBytes = (uint32_t)got;
+    progSet(NULL, NULL, 0, r->attempts);
+    if (code <= 0 && s_cancel) {
+      r->cancelled = true;                       // the user's word - never a timeout for rule 6
+      break;
+    }
+    if (code <= 0 && !s_cancel && tileFetchCallRecent()) {
+      strlcpy(r->fail, "A call came in - ask again after it", sizeof(r->fail));
+      break;
+    }
+    if (code > 0) {
+      chutesParseReply(l.cur, netWorkerSink(), got, s_work->text, sizeof(s_work->text), rep);
+    } else {
+      memset(rep, 0, sizeof(*rep));
+      rep->kind = CHUTES_REPLY_BAD;
+    }
+    /* The answer as shown, BEFORE the ladder (the WiPhone's review, 2026-10-19): a text the screen
+     * would not show (an emoji alone) is no text, so an "abort" with it is busy, not "empty". l.cur:
+     * the preset that answered - a "content_filter" after text names it (chutes.h). The sources: Gemini's
+     * rule (D-176: Wikipedia's line, then the web's). */
+    chutesAnswerShown(rep, l.cur, s_work->text, s_work->src[0] ? s_work->src : NULL, r->answer, sizeof(r->answer));
+    uint32_t delayMs = 0;
+    const char* stage = NULL;
+    const int step = chutesLadderNext(&l, code, net, rep, millis(), &delayMs, &stage);
+    if (step == GEM_STEP_DONE) {
+      s_m->chutesAnswered = true;                // a 200: the key works - a later 429 is load, not the key
+      if (rep->kind == CHUTES_REPLY_TEXT && r->answer[0]) {
+        r->ok = true;
+        geminiScrub(r->answer, sizeof(r->answer), q->chutes.key);   // a model can echo what it was sent
+        chutesAnswerLabel(&l, r->label, sizeof(r->label));
+      } else {
+        chutesNoTextMessage(rep, l.cur, r->fail, sizeof(r->fail));
+      }
+      break;
+    }
+    if (step == GEM_STEP_FAIL) {
+      if (code <= 0 && net == GEM_NET_NOMEM) {
+        lowMemText(r->fail, sizeof(r->fail));    // the heap bar (q.heapCheck) or the handshake's alloc
+      } else {
+        chutesFailText(code, net, rep, &l, q->chutes.key, r->fail, sizeof(r->fail));
+      }
+      break;
+    }
+    p = chutesPreset(l.cur);
+    strlcpy(label, p->label, GEM_LABEL_MAX);
+    snprintf(s_work->stage, sizeof(s_work->stage), "Asking %s...", p->shortName);
+    progShort(p->shortName);
+    progSet(stage ? stage : s_work->stage, label, delayMs ? millis() + delayMs : 0, -1);
+    if (delayMs) {
+      if (!waitSliced(delayMs)) {
+        r->cancelled = true;
+        break;
+      }
+      progSet("Asking again...", NULL, 0, -1);
+    }
+  }
+  s_m->chutesGone = l.goneMask;                  // a model gone this boot is skipped by the next question
+  geminiWipe(rep, sizeof(*rep));
+  free(rep);
+}
+
 /* The ladder for one question: a LOOP (the T-Deck's first retry called itself mid-TLS and died). */
 static void aiRun() {
   AiReq* q = s_req;
@@ -916,20 +1672,37 @@ static void aiRun() {
       return;
     }
   }
+  if (q->webOnly) {
+    /* `ai web test` (D-176): the search alone, exactly as a question makes it - no lookup, no model. */
+    aiWebSearch(q, r);
+    r->cancelled = s_cancel;
+    r->ms = millis() - t0;
+    return;
+  }
   char* label = s_work->label;
   char* primaryLabel = s_work->primaryLabel;
   char* stageBuf = s_work->stage;
   const size_t stageCap = sizeof(s_work->stage);
-  geminiModelLabel(q->cfg.model, primaryLabel, GEM_LABEL_MAX);
+  /* D-175: the choice the question was asked with. Chutes has its own ladder (chutes.h); everything
+   * else up to the requests - the gates above, the lookup below, Cancel and a call - is shared. */
+  const bool chutes = q->choice != CHUTES_GEMINI;
   GeminiLadder& l = s_work->ladder;
-  int step = geminiLadderStart(&l, &q->cfg, &s_m->session, &q->quota, utcNow(), millis());
-  l.retryTimeouts = q->retryTimeouts;     // "Retry if it times out" (the ladder's rule 6): the setting
-  if (step == GEM_STEP_FAIL) {
-    geminiFailText(0, GEM_NET_OK, NULL, &l, q->cfg.key, q->tzS, r->fail, sizeof(r->fail));
-    r->ms = millis() - t0;
-    return;
+  int step = GEM_STEP_RETRY;
+  if (chutes) {
+    chutesLadderStart(&s_work->cl, q->choice, s_m->chutesGone, !s_m->chutesAnswered, millis());
+    s_work->cl.retryTimeouts = q->retryTimeouts;   // "Retry if it times out": Chutes' rule 6
+    strlcpy(label, chutesPreset(s_work->cl.cur)->label, GEM_LABEL_MAX);
+  } else {
+    geminiModelLabel(q->cfg.model, primaryLabel, GEM_LABEL_MAX);
+    step = geminiLadderStart(&l, &q->cfg, &s_m->session, &q->quota, utcNow(), millis());
+    l.retryTimeouts = q->retryTimeouts;   // "Retry if it times out" (the ladder's rule 6): the setting
+    if (step == GEM_STEP_FAIL) {
+      geminiFailText(0, GEM_NET_OK, NULL, &l, q->cfg.key, q->tzS, r->fail, sizeof(r->fail));
+      r->ms = millis() - t0;
+      return;
+    }
+    geminiModelLabel(l.model, label, GEM_LABEL_MAX);
   }
-  geminiModelLabel(l.model, label, GEM_LABEL_MAX);
   /* What Wikipedia says, looked up once before the first request (a model is there to ask: the
    * ladder started). A Cancel or a call during it ends the question here. */
   progSet(NULL, label, 0, 0);
@@ -941,6 +1714,25 @@ static void aiRun() {
   }
   if (tileFetchCallRecent()) {
     strlcpy(r->fail, "A call came in - ask again after it", sizeof(r->fail));
+    r->ms = millis() - t0;
+    return;
+  }
+  /* D-176: the web search, once, AFTER the lookup and before either provider (one HTTPS worker: one TLS
+   * session at a time). It adds its block after Wikipedia's and its line after Wikipedia's - or, when it
+   * does not search, nothing (the cap's note aside). A Cancel or a call during it ends the question. */
+  aiWebSearch(q, r);
+  if (s_cancel) {
+    r->cancelled = true;
+    r->ms = millis() - t0;
+    return;
+  }
+  if (tileFetchCallRecent()) {
+    strlcpy(r->fail, "A call came in - ask again after it", sizeof(r->fail));
+    r->ms = millis() - t0;
+    return;
+  }
+  if (chutes) {
+    aiRunChutes(q, r, ctx);                 // D-175: its requests; Gemini's below are untouched
     r->ms = millis() - t0;
     return;
   }
@@ -1022,9 +1814,11 @@ static void aiRun() {
     step = geminiLadderNext(&l, &s_m->session, &q->quota, code, net, rep, utcNow(), millis(), &delayMs, &stage);
     if (step == GEM_STEP_DONE) {
       /* The answer, and - when background went with the question - the "Wikipedia: A; B" line
-       * under it (the pages that went; cut off again before it is ever sent back as context). */
+       * under it (the pages that went; cut off again before it is ever sent back as context). D-176:
+       * then the web's "Web: a; b" (or its note) on a line of its own - s_work->src holds only what
+       * wikiCompose and aiWebSearch put there, so "" is no line at all. */
       if (rep->kind == GEM_REPLY_TEXT &&
-          geminiAnswerText(rep, s_work->text, s_work->bg[0] ? s_work->src : NULL, r->answer,
+          geminiAnswerText(rep, s_work->text, s_work->src[0] ? s_work->src : NULL, r->answer,
                            sizeof(r->answer)) > 0) {
         r->ok = true;
         /* Google's text is drawn, saved and sent back: the scrub every other text from Google gets
@@ -1062,7 +1856,7 @@ static void aiRun() {
       progSet("Asking again...", NULL, 0, -1);
     }
   }
-  memset(rep, 0, sizeof(*rep));           // Google's message may quote what was sent
+  geminiWipe(rep, sizeof(*rep));          // Google's message may quote what was sent
   free(rep);
   r->ms = millis() - t0;
 }
@@ -1072,6 +1866,10 @@ static void aiRun() {
 static void aiJob() {
   aiRun();                                // returns, so its locals are destructed
   memset(s_req->cfg.key, 0, sizeof(s_req->cfg.key));
+  memset(s_req->chutes.key, 0, sizeof(s_req->chutes.key));   // D-175: the Chutes copy too
+  memset(s_work->auth, 0, sizeof(s_work->auth));             // ...and its header (wiped per request already)
+  memset(s_req->web.key, 0, sizeof(s_req->web.key));         // D-176: the Tavily copy
+  memset(s_work->webAuth, 0, sizeof(s_work->webAuth));       // ...and its header (wiped after its request already)
   s_res->stackFloor = netWorkerStackFloor();
   heapNow(NULL, NULL, &s_res->minEver);
   s_done = true;                          // before s_busy drops: aiRequestActive never blinks
@@ -1114,6 +1912,36 @@ void aiLoopTick() {
   if (!s_done || gGbcActive) {
     return;
   }
+  /* D-176: a search whose request was SENT is counted now, on the loop (NVS): Auto's against the day's
+   * cap, forced and Always ones apart - a reboot keeps both (ai_webd / ai_webn / ai_webo). One that never
+   * reached Tavily (DNS, the handshake, the heap bar) spent no credit and is not counted (review
+   * 2026-10-19: a captive portal used up the day's automatic searches). ⚠ Its log line is numbers only:
+   * never the key, the query or the block. */
+  if (s_res->webAsked && memOk()) {
+    dayLoad();
+    if (s_res->webSent) {
+      webDayCount(&s_m->day, webToday(), s_req->webDec.automatic);
+      daySave();
+    }
+    log_e("AI: web search HTTP %d (net %d) in %u ms (connect %u)%s, %d result(s) in the block (%u bytes), Tavily %ld ms, "
+          "%d credit(s), today %d auto + %d other",
+          s_res->webCode, s_res->webNet, (unsigned)s_res->webMs, (unsigned)s_res->webHsMs,
+          s_res->webSent ? "" : ", never sent: not counted", s_res->webKept, (unsigned)s_res->webBlockLen, s_res->webRespMs,
+          s_res->webCredits, s_m->day.autoN, s_m->day.otherN);
+  }
+  if (s_req->webOnly) {
+    /* `ai web test`: no chat, no question counted - only the search (above), its keys wiped. A Clear
+     * chat or a New topic asked meanwhile was done to the chat at once; what they latched for the
+     * question in flight has none to apply to here - and left set, it would drop the NEXT question's
+     * answer or break its topic again after it (review 2026-10-19). */
+    memset(s_req->web.key, 0, sizeof(s_req->web.key));
+    s_breakAfter = false;
+    s_clearAfter = false;
+    s_haveRes = true;
+    s_cancel = false;
+    s_done = false;
+    return;
+  }
   const bool cancelled = s_res->cancelled || s_cancel;
   const bool ok = s_res->ok && !cancelled;
   GeminiChat* c = s_clearAfter ? NULL : chatGet();
@@ -1131,6 +1959,8 @@ void aiLoopTick() {
     quotaSave();
   }
   memset(s_req->cfg.key, 0, sizeof(s_req->cfg.key));
+  memset(s_req->chutes.key, 0, sizeof(s_req->chutes.key));
+  memset(s_req->web.key, 0, sizeof(s_req->web.key));        // D-176
   if (ok) {
     s_answered++;
   } else {
@@ -1151,7 +1981,32 @@ void aiLoopTick() {
   s_done = false;
 }
 
-bool aiAsk(const char* question, char* why, size_t whyCap) {
+/* The question, straight into the (idle) request - not on the loop's stack: printable ASCII (the
+ * compose field's own rule), ends trimmed, 500 at most. aiAsk's, and (D-176) `ai web test`'s. */
+static bool takeQuestion(const char* question, char* why, size_t whyCap) {
+  const char* p = question ? question : "";
+  while (*p == ' ') p++;
+  const size_t len = strlen(p);
+  if (len > GEM_Q_CAP) {
+    strlcpy(why, "Too long - 500 characters at most", whyCap);
+    return false;
+  }
+  char* q = s_req->question;
+  size_t n = 0;
+  for (; *p; p++) {
+    const unsigned char ch = (unsigned char)*p;
+    q[n++] = (ch >= 0x20 && ch < 0x7F) ? (char)ch : ' ';
+  }
+  while (n > 0 && q[n - 1] == ' ') n--;
+  q[n] = '\0';
+  if (n == 0) {
+    strlcpy(why, "Type a question first", whyCap);
+    return false;
+  }
+  return true;
+}
+
+bool aiAsk(const char* question, char* why, size_t whyCap, bool forceWeb) {
   if (!why || whyCap == 0) {
     return false;
   }
@@ -1169,41 +2024,28 @@ bool aiAsk(const char* question, char* why, size_t whyCap) {
     strlcpy(why, "No memory for the question", whyCap);
     return false;
   }
-  /* The question, straight into the (idle) request - not on the loop's stack: printable ASCII
-   * (the compose field's own rule), ends trimmed, 500 at most. */
-  {
-    const char* p = question ? question : "";
-    while (*p == ' ') p++;
-    const size_t len = strlen(p);
-    if (len > GEM_Q_CAP) {
-      strlcpy(why, "Too long - 500 characters at most", whyCap);
-      return false;
-    }
-    char* q = s_req->question;
-    size_t n = 0;
-    for (; *p; p++) {
-      const unsigned char ch = (unsigned char)*p;
-      q[n++] = (ch >= 0x20 && ch < 0x7F) ? (char)ch : ' ';
-    }
-    while (n > 0 && q[n - 1] == ' ') n--;
-    q[n] = '\0';
-    if (n == 0) {
-      strlcpy(why, "Type a question first", whyCap);
-      return false;
-    }
+  if (!takeQuestion(question, why, whyCap)) {
+    return false;
   }
   aiKeyReload();                          // a new or fixed key works without a reboot
   if (!s_m) {
     strlcpy(why, "No memory for the question", whyCap);
     return false;
   }
-  if (!s_m->key.usable) {
-    if (s_m->key.state == AI_KEY_BAD) {
+  /* D-175: which model - NVS ai_model, or the default rule (no chutes.txt: Gemini, as before) - and
+   * THAT provider's key. */
+  const int choice = aiModelChoice();
+  const bool chutes = choice != CHUTES_GEMINI;
+  const bool usable = chutes ? (s_m->ckey.usable && s_ccfg && s_cHaveGood) : s_m->key.usable;
+  if (!usable) {
+    const int st = chutes ? s_m->ckey.state : s_m->key.state;
+    if (st == AI_KEY_BAD) {
       strlcpy(why, "The key file was refused - see Key info", whyCap);
-    } else if (s_m->key.state == AI_KEY_UNREADABLE) {
+    } else if (st == AI_KEY_UNREADABLE) {
       strlcpy(why, "Could not read the key file - try again", whyCap);
     } else {
-      strlcpy(why, "No key - put gemini.txt in API Keys (see Key info)", whyCap);
+      strlcpy(why, chutes ? "No key - put chutes.txt in API Keys (see Key info)"
+                          : "No key - put gemini.txt in API Keys (see Key info)", whyCap);
     }
     return false;
   }
@@ -1237,7 +2079,17 @@ bool aiAsk(const char* question, char* why, size_t whyCap) {
   quotaLoad();
 
   // The request: everything the worker will read, copied now (the chat may change meanwhile).
-  memcpy(&s_req->cfg, s_cfg, sizeof(s_req->cfg));
+  s_req->choice = choice;                         // D-175: the choice as the question is asked
+  if (chutes) {
+    /* Only the Chutes key goes with a Chutes question; `cfg` carries chutes.txt's lookup= alone
+     * (aiWikiLookup reads one place). */
+    memset(&s_req->cfg, 0, sizeof(s_req->cfg));
+    s_req->cfg.lookup = s_ccfg->lookup;
+    memcpy(&s_req->chutes, s_ccfg, sizeof(s_req->chutes));
+  } else {
+    memcpy(&s_req->cfg, s_cfg, sizeof(s_req->cfg));
+    memset(&s_req->chutes, 0, sizeof(s_req->chutes));
+  }
   s_req->askedUtc = utcNow();
   s_req->tzS = tzNow();
   {
@@ -1250,7 +2102,13 @@ bool aiAsk(const char* question, char* why, size_t whyCap) {
       strlcpy(s_req->zone, e.name, sizeof(s_req->zone));
     }
   }
-  s_req->topic = geminiChatTopicDue(chat, s_req->askedUtc);
+  /* The topic: geminiChatTopicDue's reasons and - the X4's review, 2026-10-19 - a topic never spans
+   * Gemini and Chutes: a question to the other provider than this boot's last one, or than any
+   * exchange it would be sent (the labels: a restart and a cloned card too), starts one. So Google
+   * is never sent what Chutes was asked or answered (Key info: "never to Google"), nor Chutes what
+   * Google was. chutesTopicDue, host-tested; aiTopicDue asks the same. */
+  s_req->topic = chutesTopicDue(chat, s_req->askedUtc, choice, s_m->topicLast);
+  s_m->topicLast = chutesChoiceProvider(choice);  // asked: nothing below refuses it
   s_req->nCtx = 0;
   if (!s_req->topic) {
     int idx[GEM_CONTEXT];
@@ -1265,6 +2123,19 @@ bool aiAsk(const char* question, char* why, size_t whyCap) {
   s_req->quotaIn = s_m->quota;
   s_req->heapCheckAtStart = behindWeather;
   s_req->retryTimeouts = aiRetryTimeouts();       // NVS, read once: the setting as the question is asked
+  /* D-176: the web search, decided now (webDecide, host-tested: the setting, a usable tavily.txt, the
+   * per-question force, the Auto rule and today's automatic searches - NVS, so a reboot keeps the cap) -
+   * and the Tavily key copied into the question ONLY when it searches. */
+  dayLoad();
+  webDecide(aiWebMode(), aiWebUsable(), forceWeb, s_req->question, webDayAutoUsed(&s_m->day, webToday()),
+            &s_req->webDec);
+  s_req->webNote = s_req->webDec.why == WEB_WHY_CAP ? WEB_NOTE_CAP : WEB_NOTE_NONE;
+  s_req->webOnly = false;
+  if (s_req->webDec.search) {
+    memcpy(&s_req->web, s_wcfg, sizeof(s_req->web));
+  } else {
+    memset(&s_req->web, 0, sizeof(s_req->web));
+  }
   memset(s_res, 0, sizeof(*s_res));
   s_haveRes = false;
   /* MUSIC PAUSES FOR A QUESTION (Nick, 2026-10-03: "make music turn off when doing ai"). The
@@ -1283,6 +2154,10 @@ bool aiAsk(const char* question, char* why, size_t whyCap) {
   strlcpy(s_m->prog.stage, behindWeather ? "Waiting for the weather fetch..."
                            : (pausedMusic ? "Music paused - connecting..." : "Connecting..."),
           sizeof(s_m->prog.stage));
+  if (chutes) {
+    strlcpy(s_m->prog.label, chutesChoiceLabel(choice), sizeof(s_m->prog.label));
+    strlcpy(s_m->prog.shortName, chutesChoiceShort(choice), sizeof(s_m->prog.shortName));
+  }
   s_m->prog.gen = 1;
   portEXIT_CRITICAL(&s_mux);
   tlsInstallPsramHook();                  // BEFORE the first WiFiClientSecure (tile_fetch.h)
@@ -1294,7 +2169,127 @@ bool aiAsk(const char* question, char* why, size_t whyCap) {
   return true;
 }
 
+bool aiWebTest(const char* question, char* why, size_t whyCap) {
+  if (!why || whyCap == 0) {
+    return false;
+  }
+  why[0] = '\0';
+  aiLoopTick();
+  if (aiRequestActive()) {
+    strlcpy(why, s_cancel ? "Still cancelling the last question" : "A question is already being asked", whyCap);
+    return false;
+  }
+  if (!s_req) s_req = (AiReq*)heap_caps_calloc(1, sizeof(AiReq), MALLOC_CAP_SPIRAM);
+  if (!s_res) s_res = (AiRes*)heap_caps_calloc(1, sizeof(AiRes), MALLOC_CAP_SPIRAM);
+  if (!s_work) s_work = (AiWork*)heap_caps_calloc(1, sizeof(AiWork), MALLOC_CAP_SPIRAM);
+  if (!s_req || !s_res || !s_work) {
+    strlcpy(why, "No memory for the search", whyCap);
+    return false;
+  }
+  if (!takeQuestion(question, why, whyCap)) {
+    return false;
+  }
+  aiKeyReload();
+  if (!s_m) {
+    strlcpy(why, "No memory for the search", whyCap);
+    return false;
+  }
+  /* Off keeps every question away from Tavily - a bench search too. */
+  if (aiWebMode() == WEB_OFF) {
+    strlcpy(why, "Web search is Off - nothing goes to Tavily (`ai web auto` first)", whyCap);
+    return false;
+  }
+  if (!aiWebUsable()) {
+    strlcpy(why, s_m->wkey.state == AI_KEY_BAD ? "tavily.txt was refused - see `ai web`"
+                                               : "No usable tavily.txt in API Keys", whyCap);
+    return false;
+  }
+  {
+    const char* gate = aiGateWhy();
+    if (gate) {
+      strlcpy(why, gate, whyCap);
+      return false;
+    }
+  }
+  const bool behindWeather = wxRequestActive();
+  if (!behindWeather && !netHeapOkForHandshake(NULL, NULL)) {
+    lowMemText(why, whyCap);
+    return false;
+  }
+  if (!netWorkerReady(why, whyCap)) {
+    return false;
+  }
+  quotaLoad();
+  /* The request: no provider, no key but Tavily's, no chat - the search alone, forced (counted apart). */
+  s_req->choice = CHUTES_GEMINI;
+  memset(&s_req->cfg, 0, sizeof(s_req->cfg));
+  memset(&s_req->chutes, 0, sizeof(s_req->chutes));
+  s_req->askedUtc = utcNow();
+  s_req->tzS = tzNow();
+  s_req->zone[0] = '\0';
+  s_req->topic = false;
+  s_req->nCtx = 0;
+  s_req->quota = s_m->quota;                      // untouched, so nothing is saved for it
+  s_req->quotaIn = s_m->quota;
+  s_req->heapCheckAtStart = behindWeather;
+  s_req->retryTimeouts = false;
+  s_req->musicPaused = false;
+  webDecide(aiWebMode(), true, true, s_req->question, 0, &s_req->webDec);
+  s_req->webNote = WEB_NOTE_NONE;
+  s_req->webOnly = true;
+  memcpy(&s_req->web, s_wcfg, sizeof(s_req->web));
+  /* The last search's block and line wiped (review 2026-10-19): a test that ends before its search
+   * (a gate at the worker's start) must never let `ai web` print an earlier question's. The worker is
+   * idle: aiRequestActive() was false above. */
+  memset(s_work->web, 0, sizeof(s_work->web));
+  memset(s_work->webSrc, 0, sizeof(s_work->webSrc));
+  memset(s_res, 0, sizeof(*s_res));
+  s_haveRes = false;
+  portENTER_CRITICAL(&s_mux);
+  memset(&s_m->prog, 0, sizeof(s_m->prog));
+  s_m->prog.startMs = millis();
+  strlcpy(s_m->prog.stage, behindWeather ? "Waiting for the weather fetch..." : WEB_STAGE, sizeof(s_m->prog.stage));
+  strlcpy(s_m->prog.label, "Tavily", sizeof(s_m->prog.label));
+  s_m->prog.gen = 1;
+  portEXIT_CRITICAL(&s_mux);
+  tlsInstallPsramHook();
+  s_cancel = false;
+  s_done = false;
+  s_busy = true;
+  netWorkerSubmit(NET_JOB_AI, aiJob);
+  return true;
+}
+
 // ── the bench ────────────────────────────────────────────────────────────────────────────
+
+/* D-176: the setting, the key's LENGTH (never the key) and the day's counts - `ai` and `ai web`. */
+static void webStateLines(void (*emit)(const char* line), const char* first) {
+  char l[192];
+  int a = 0, o = 0;
+  aiWebToday(&a, &o);
+  snprintf(l, sizeof(l), "%sweb search: %s (%s)%s - today %d of %d automatic, %d other", first, webModeLabel(aiWebMode()),
+           aiWebModeStored() ? "ai_web set" : "ai_web unset: Auto", aiWebUsable() ? "" : ", NO usable tavily.txt: nothing is searched",
+           a, WEB_DAILY_AUTO, o);
+  emit(l);
+  snprintf(l, sizeof(l), "    tavily %s, file %s, roots built-in Amazon Root CA 1 + Starfield G2", s_m->wkey.line,
+           s_m->wkey.path ? s_m->wkey.path : "(none: " AI_TAVILY_FILE ")");
+  emit(l);
+}
+
+/* The last question's search, in numbers: never the query, the block or Tavily's text. */
+static void webLastLine(char* l, size_t cap) {
+  if (!s_res->webAsked) {
+    char w[96];
+    webWhyText(&s_req->webDec, w, sizeof(w));
+    snprintf(l, cap, "    web: not searched (%s)%s", w, s_res->webNote == WEB_NOTE_CAP ? " - the cap's note went under it" : "");
+    return;
+  }
+  const char* note = webNoteLine(s_res->webNote);
+  snprintf(l, cap, "    web: HTTP %d (net %d), %u ms (connect %u), %d result(s) in the block (%u bytes), Tavily %ld ms, "
+           "%d credit(s)%s%s%s", s_res->webCode, s_res->webNet, (unsigned)s_res->webMs, (unsigned)s_res->webHsMs, s_res->webKept,
+           (unsigned)s_res->webBlockLen, s_res->webRespMs, s_res->webCredits, s_res->webSent ? "" : ", never sent (not counted)",
+           note ? " - " : "", note ? note : "");
+}
 
 void aiReport(void (*emit)(const char* line)) {
   char l[192];
@@ -1310,14 +2305,28 @@ void aiReport(void (*emit)(const char* line)) {
   snprintf(l, sizeof(l), "    file %s, roots built-in GTS R1+R4",
            s_m->key.path ? s_m->key.path : "(none: " AI_KEY_FILE " or " AI_KEY_FILE_ROOT ")");
   emit(l);
+  /* D-175: the provider and preset, and the Chutes key's LENGTH - never the key. */
+  const int choice = aiModelChoice();
+  snprintf(l, sizeof(l), "    model: %s (%s; %s)%s", chutesChoiceLabel(choice), chutesChoiceId(choice),
+           aiModelChoiceStored() ? "ai_model set" : "ai_model unset: the default",
+           aiChoiceUsable(choice) ? "" : " - NO usable key file for it: questions are refused");
+  emit(l);
+  snprintf(l, sizeof(l), "    chutes %s", s_m->ckey.line);
+  emit(l);
+  snprintf(l, sizeof(l), "    file %s, roots built-in GoDaddy G2 + ISRG X1/X2/YR/YE + GTS R1/R4%s",
+           s_m->ckey.path ? s_m->ckey.path : "(none: " AI_CHUTES_FILE ")",
+           s_m->chutesGone ? ", a preset answered not-found this boot" : "");
+  emit(l);
   const GeminiChat* c = aiRequestActive() ? s_chat : chatGet();
   if (c) {
-    const int64_t now = utcNow();
     int idx[GEM_CONTEXT];
-    const bool topic = geminiChatTopicDue(c, now);
+    bool other = false;
+    const bool topic = aiTopicDue(&other);        // aiAsk's rule: the provider's too
     snprintf(l, sizeof(l), "    chat: %d exchange%s saved (%u bytes), the next question %s",
              c->n, c->n == 1 ? "" : "s", (unsigned)geminiChatSave(c, NULL, 0),
-             topic ? "starts a new topic" : "");
+             topic ? (other ? "starts a new topic (the model in use is not the topic's provider)"
+                            : "starts a new topic")
+                   : "");
     if (!topic) {
       const size_t at = strlen(l);
       snprintf(l + at, sizeof(l) - at, "sends %d earlier exchange(s)", geminiChatContext(c, idx));
@@ -1343,10 +2352,16 @@ void aiReport(void (*emit)(const char* line)) {
   if (!anyOut) {
     emit("    daily limits: none reached");
   }
-  emit(s_m->key.lookup ? "    Wikipedia lookup: on (keywords only; gemini.txt lookup=off stops it)"
-                       : "    Wikipedia lookup: OFF (gemini.txt lookup=off)");
+  if (choice == CHUTES_GEMINI) {
+    emit(s_m->key.lookup ? "    Wikipedia lookup: on (keywords only; gemini.txt lookup=off stops it)"
+                         : "    Wikipedia lookup: OFF (gemini.txt lookup=off)");
+  } else {
+    emit(s_m->ckey.lookup ? "    Wikipedia lookup: on (keywords only; chutes.txt lookup=off stops it)"
+                          : "    Wikipedia lookup: OFF (chutes.txt lookup=off)");
+  }
   emit(aiRetryTimeouts() ? "    " GEM_RETRY_LABEL ": on (once more, then the fallback once; `ai retry off`)"
                          : "    " GEM_RETRY_LABEL ": OFF (a timeout is shown at once; `ai retry on`)");
+  webStateLines(emit, "    ");                    // D-176
   if (aiRequestActive()) {
     AiProgress p;
     aiProgress(&p);
@@ -1368,6 +2383,10 @@ void aiReport(void (*emit)(const char* line)) {
       emit(l);
     } else {
       snprintf(l, sizeof(l), "    Wikipedia: skipped after %u ms - %s", (unsigned)s_res->wikiMs, s_res->wikiWhy);
+      emit(l);
+    }
+    if (s_req) {
+      webLastLine(l, sizeof(l));                  // D-176
       emit(l);
     }
     if (s_res->ok) {
@@ -1423,4 +2442,52 @@ void aiReportLast(void (*emit)(const char* line)) {
   emit(l);
   emitWrapped(emit, "  Q: ", e->q);
   emitWrapped(emit, "  A: ", e->a);
+}
+
+void aiWebReport(void (*emit)(const char* line)) {
+  char l[192];
+  if (!memOk()) {
+    emit("ai web: no PSRAM for the AI's state");
+    return;
+  }
+  if (!aiRequestActive()) {
+    aiKeyReload();
+  }
+  webStateLines(emit, "ai web: ");
+  emit("    budget: the handshake 6 s, Tavily's answer 6 s, 12 s in all; never retried. The key goes only to " WEB_HOST);
+  if (aiRequestActive()) {
+    AiProgress p;
+    aiProgress(&p);
+    snprintf(l, sizeof(l), "    NOW: %s (%u s)%s", p.stage, (unsigned)((millis() - p.startMs) / 1000),
+             p.cancelled ? " - cancelling" : "");
+    emit(l);
+    return;
+  }
+  if (!s_haveRes || !s_res || !s_req) {
+    emit("    nothing searched since boot. ai web test <question> (a forced search, counted)");
+    return;
+  }
+  webLastLine(l, sizeof(l));
+  emit(l);
+  if (!s_req->webOnly) {
+    return;                                        // a question's block is never printed: only the bench test's
+  }
+  /* `ai web test`: what Auto would have said of the question, then - bench only, asked for by hand - the
+   * block the model would get and its line. Never in a log, the chat or the card. */
+  int a = 0, o = 0;
+  aiWebToday(&a, &o);
+  WebDecision d;
+  webDecide(WEB_AUTO, true, false, s_req->question, a, &d);
+  char w[96];
+  webWhyText(&d, w, sizeof(w));
+  const char* tr = webTimeId(s_req->webDec.timeRange);
+  snprintf(l, sizeof(l), "    the test's question: %u chars; under Auto: %s; topic %s, time_range %s",
+           (unsigned)strlen(s_req->question), w, webTopicId(s_req->webDec.topic), tr ? tr : "none");
+  emit(l);
+  if (s_res->webAsked && s_res->webNote == WEB_NOTE_NONE && s_work && s_work->web[0]) {
+    /* Only THIS test's search, and only one that put a block in (review 2026-10-19). */
+    emit("    the block (bench only - never stored or logged):");
+    emitWrapped(emit, "    ", s_work->web);
+    emitWrapped(emit, "    ", s_work->webSrc);
+  }
 }

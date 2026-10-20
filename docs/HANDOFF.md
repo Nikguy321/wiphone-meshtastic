@@ -4,6 +4,143 @@
 
 Read this first; everything below it is narrative.
 
+🔎 **2026-10-19: D-176 - WEB SEARCH (TAVILY) BESIDE THE WIKIPEDIA LOOKUP, BUILT (0.9.82-NH dev, branch `kosync`, on top of
+the uncommitted D-175 work). Host-tested and built; NOT flashed, NOT committed, no Tavily call made (no key yet). Both phones
+still run the 10-18 build.** Spec: COVEY `docs/research/2026-10-19_web_search/D-176_spec.md` (research `README.md` beside it).
+- **Public rule:** off without `/API Keys/tavily.txt` (`key=tvly-...`, that path only). Menu > AI: `Web search: Off|Auto|Always`
+  (OK cycles, NVS `wpmesh`/`ai_web`, unset = Auto; no key = "needs tavily.txt" -> Key info) and `Ask with web search` (only
+  with a key and not Off: Off keeps EVERY question away from Tavily, the forced one too). Serial: `ai web [off|auto|always]`,
+  `ai web test <q>` (the search alone, counted; `ai web` then prints the block - bench only). Key info: a Tavily section with
+  the spec's privacy words (`WEB_PRIVACY`).
+- **Pure:** `websearch.h/.cpp` (no Arduino/IDF, no allocation, no recursion; the X4 copies it next): config via
+  `geminiReadKeyFile` (tvly- only; a cpk_ key named), the Auto rule (38 words, years 2025-2099, < 2 letter-words skipped),
+  topic/time (news+week / general+month / general), the body exactly, a STREAMING parser (byte-at-a-time state machine fed by
+  https_worker's tap; keeps title/url/content/score/published_date in fixed buffers, a UTF-8-safe cut; an error's detail only
+  as a limit/credit/plan flag), the block (header, framing line, `Summary:` 400, 3 lines of 60/250 scored >= 0.30, 1,500
+  bytes, ASCII-folded, cut at a word),
+  the `Web:` line, `webAppendBlock`/`webAppendLine`, the day's cap arithmetic, the notes. `test_websearch` 185 checks.
+  gemini.cpp: a `tvly-` key in gemini.txt refused + wiped; the context strip cuts a trailing `Web:` line (alone, or after the
+  Wikipedia line). chutes.cpp: a tvly- key in chutes.txt named.
+- **Glue (ai_net):** `webKeyReload` (chutes.txt's latch), the decision in aiAsk (`webDecide`, today's count read from NVS
+  first) and the key copied only when it searches; `aiWebSearch` on the worker AFTER `aiWikiLookup`, before either provider:
+  POST to `api.tavily.com` only, `AI_TAVILY_ROOTS_PEM` = Amazon Root CA 1 + Starfield Services Root G2 (`amazon_roots.h`, SHA-256
+  `8E:CD:E6:88...` / `56:8D:69:05...` from the macOS keychain, each verified alone against the live chain with python ssl /
+  OpenSSL 3.5.8), Bearer in PSRAM `s_work->webAuth` wiped right after, connectFirst + heap bar, Cancel, a call, `w.cap = 0` +
+  `w.tap = webTap`, never retried. `s_work->bg` grown to WIKI_BG_MAX + 2 + 1,500 (Wikipedia's budget unchanged); `s_work->src`
+  grown for the `Web:` line; the answer's sources are now `s_work->src[0] ? s_work->src : NULL` (src holds only what
+  wikiCompose / aiWebSearch put there - so the web's failure note shows even with no Wikipedia background). Counting: aiLoopTick,
+  on the loop, every SENT search (`s_res->webSent`; `webDayCount` + NVS `ai_webd` int / `ai_webn` / `ai_webo` ushort).
+- ⚠ **The 3 s budget, adapted:** the spec's "3 s total" assumed a Pi-speed handshake (155 ms from the Mac). This phone's TLS
+  handshake to an RSA + P-256 host is 2.0-3.1 s (Open-Meteo / NWS, measured 2026-10-03), so the handshake has its own 6 s cap
+  (`AI_WEB_CONNECT_MS`), Tavily gets 6 s to answer (`WEB_ANSWER_MS`: the first-byte wait; the spec's 3 s, raised 2026-10-19 on Nick's "I don't mind long search budgets"), 12 s in all
+  (`AI_WEB_TOTAL_MS`). Flagged for Nick / COVEY.
+- **TLS 1.2 + P-256 measured from the Mac (2026-10-19):** ECDHE-RSA-AES128-GCM-SHA256 and -AES256-GCM-SHA384 accepted;
+  ECDHE-RSA-AES128-SHA256 / -SHA and every ECDSA suite refused (RSA leaf); P-256 and P-384 both offered. Leaf
+  `*.tavily.com` 2026-06-01 .. 2026-12-15 (re-check the chain after it renews).
+- **Tests:** `test_websearch` 185/0; `test_gemini` +8 (tvly refusal, the Web: strip), `test_chutes` +1,
+  `test_filepaths` +2, `test_kosync` +1. `check_ai_glue`: contracts 22-25 + contract 7's missing lookup heap-bar check (found
+  by a mutation that hit the lookup's identical lines first) - 25 contracts, 268 mutations (it now takes ~3 min).
+  In-place mutants: 30/30 caught by an assertion, md5-verified restores (the first run caught 28; the two misses - the key's
+  first 8 characters in Key info's line, a 4-byte character at a buffer's edge - strengthened noKey and the huge-field
+  test). `./tests/run_tests.sh` exit 0.
+- **Build:** `pio run` SUCCESS: RAM 28.1 % (92,140 B, +32), flash 48.3 % (3,168,503 B, +24,352; websearch.o 14.5 KB of text,
+  the two PEMs ~3 KB).
+- ✅ **Review fixes (2026-10-19, same day, not flashed):** the spec's measured tweaks are in (`include_answer` "basic" + a
+  `Summary:` line, score < 0.30 dropped, top 3, cap **15**/day, Key info's plan 1,500, a measured-shape fixture); the web
+  block no longer eats the context budget (`geminiContextFirst` counts Wikipedia's only, via `GEM_WEB_BLOCK_HEAD`); only a
+  content's own cut gives `...`; only a SENT search is counted (`webSent`: `res.largestAfterSend != 0 || code > 0`);
+  `ai web test` resets the Clear/New-topic latches, wipes the last block first and prints only its own; a question's block
+  copy is wiped once in bg. Glue contracts 26-27 + contract 24's force path. `test_websearch` 218 checks; `check_ai_glue` 27
+  contracts, 284 mutations; 26 in-place mutants reverting each fix, all caught, md5-verified restores. Suite exit 0;
+  `pio run` SUCCESS: RAM 28.1 % (92,140 B), flash 48.4 % (3,169,395 B, +892).
+- **Owed (bench, phone 1 first, once Nick has his key):** put it with `up on keys` + `tools/wiphone_send.py --app keys
+  tavily.txt`; `ai` -> "tavily key: set (N chars)"; `ai web test marathon best weapon` -> HTTP 200, the handshake ms vs the 6 s
+  cap (with and without music), the worker stack floor with the parser on the tap (> ~1.5 KB), `response_time` and credits;
+  record ONE real reply's shape and check it against the fixtures (its size, `published_date` on a general result,
+  `response_time` a string or a number); then one Auto, one forced and one Always question per phone, and the cap's NVS across
+  a reboot. Then Nick's key on both cards. The X4 port: copy `websearch.{h,cpp}` (and gemini.cpp's tvly refusal + Web: strip).
+
+🔎 **2026-10-19 ~15:00: both phones REFLASHED (sha256 ab0d8405..., hash verified) with WEB_ANSWER_MS 6000 (Tavily 6 s, 12 s in all; Nick: long budgets are fine); host suite exit 0, glue 27 contracts / 284 mutations.** Earlier: 🔎 **2026-10-19 ~11:35: D-176 web search (Tavily) FLASHED on BOTH phones** (sha256 c3fd5433..., app @0x10000, hash verified; build reviewed 3 ways, 9 findings fixed). Key on each card (`up on keys` + `wiphone_send.py --app keys --port-tag <tag> tavily.txt`; the SIZE MISMATCH line is the known write-only-folder false alarm; `ai web` proves it: 'tavily key: set (58 chars)'). Phone 1: `ai ask what is the best weapon in the new marathon game` → web HTTP 200 in 2,074 ms (connect 1,607), 3 results / 1,460 B block, answer 14.3 s by V4 Flash from the Season 2 tier list; stack floor 2,428 B. Phone 2: `ai web test` 3,769 ms (Tavily 1,790). Key 0 times in both logs. NOT committed.
+
+🤖 **2026-10-18 evening: D-175 - CHUTES MODELS IN MENU > AI, BUILT AND ON PHONE 1 (0.9.82-NH dev, branch `kosync`; NOT
+committed, NOT published).** ✅ **Phone 2 (`025A3F65`) too, 2026-10-18 ~22:30:** the same build (sha256 `1869b968...`), key via
+`--port-tag 025A3F65`, `ai`: chutes key set (102 chars), default v4flash; 'How many MOA is 3.5 inches at 250 yards?' → V4
+Flash 13.1 s, 1.34 MOA, stack floor 2,416 B, key 0 times in the log; bridge stopped after.** ✅ **Phone 1 (`025A3EAF`) 2026-10-18 ~22:10:** app @0x10000 (esptool
+3.1, hash verified; reflashed once for the shorter picker notes, `firmware.bin` sha256 starts `1794667c` for the first
+build), Nick's key put on the card with `up on keys` + `wiphone_send.py --app keys chutes.txt` (the tool's 'SIZE MISMATCH:
+phone holds 0' is FALSE - the key folder is write-only by design, so the resume query reads 0; `ai` is the proof: 'chutes
+key: set (102 chars)', default v4flash). Live via `ai ask` over the panicwatch bridge: V4 Flash 12.9 s (Wikipedia 5.35 s of
+it, 2 pages), Kimi 8.6 s, Kimi careful 10.4 s, GLM 49.1 s (Chutes overloaded on GLM that evening) - all HTTP 200, 1 request
+each, **stack floor 2,416 B** (>1.5 KB), the key in the serial log 0 times. Screens seen with bridge_shot: answers labelled
+'Kimi K2.6 careful' / 'GLM 5.1', Menu row 'Model: V4 Flash', the picker with '(in use)' and every note fitting. Phone 1's AI
+date said 'Oct 19' at 21:35 PDT because its AUTO zone is Eastern (`tz`: a phone-GPS fix 5d23h old) - a tz matter, not
+D-175. Owed: a forced-timeout fallback on the phone, handshake time with music playing. Spec: COVEY `docs/research/2026-10-18_chutes_assistants/D-175_WiPhone_spec.md`.
+- **Public rule:** off without `/API Keys/chutes.txt` (that path only); NVS `wpmesh`/`ai_model` unset = V4 Flash with a
+  Chutes key, else Gemini (`chutesChoiceResolve`). Menu > AI > Model (picker, "needs chutes.txt"), `ai model [<id>|default]`.
+- **Pure:** `chutes.h/.cpp` (presets v4flash/kimi/kimi_think/glm, max_tokens 1500/1000/3000/1000, waits 120/60/120/60 s,
+  chains, `<think>` strip, ladder: 401/402 FAIL, 404 gone-for-the-boot + fallback, busy = 1 retry in 30 s then ONE fallback,
+  timeout = fallback at once). No Chutes text is ever kept (402 names a wallet). `test_chutes` 186 checks.
+- **Glue:** `postOnceChutes` (Bearer in PSRAM `s_work->auth`, wiped after netHttps, only to `llm.chutes.ai`),
+  `aiRunChutes` after aiRun's one lookup, roots `AI_CHUTES_ROOTS_PEM` = GoDaddy G2 + ISRG X1/X2/YR/YE + GTS R1/R4
+  (`gts_roots.h` holds Gemini's pair, moved unchanged; `godaddy_roots.h`). check_ai_glue 20 contracts / 168 mutations.
+- **Review fixes (same evening, CHANGELOG "Review fixes"):** `<think>` stripped at the START only (a mid-answer tag cut
+  answers silently); "check the key" only when EVERY attempt was a 429; a 404 marks every preset of that model (kimi +
+  kimi_think); the key-file wipes are `geminiWipe` (the memsets before free() were dropped by gcc - objdump of
+  `ai_net.cpp.o` now shows geminiWipe before each free of the buffer, the parse and the reply); a `cpk_` key in gemini.txt
+  refused; roots + ISRG YR/YE; Key info's Back exits only with NO key, plus a `Model:` row (the keyless-model trap); the
+  uploader's line names the in-use model's file; card_clone.sh drops chutes.txt. 40 more in-place mutants, all caught by
+  an assertion, md5 restored. Suite exit 0. `pio run` SUCCESS: RAM 28.1 % (92,108 B), flash 47.9 % (3,142,443 B).
+- 🔁 **2026-10-19: the X4's review fixes brought back. Host-tested and built; NOT flashed, NOT committed. Both phones
+  still run the 10-18 build.** The X4's port (`~/crosspoint-reader/lib/Chutes`, reviewed 2026-10-19) found three
+  faults the phone shared. CHANGELOG has them under "The X4's review fixes, brought back".
+  - **Finish rule:** only `stop`, `length` and `content_filter` end an answer. `abort`/`error` after text →
+    " (cut short)". `content_filter` after text → " (stopped - <label> declined to finish)", and
+    `chutesAnswerText(rep, l.cur, ...)` now takes the answering preset. A 200 with no text and such a finish is
+    busy (retry, then the fallback), never "sent an empty answer".
+  - **Gone memory:** rule 3 marks the model gone BEFORE the 4-attempt cap.
+  - **Topics:** a topic never spans Gemini and Chutes. `chutesTopicDue` (pure, in `chutes.cpp`) checks the provider
+    of this boot's last question (`s_m->topicLast`, UNKNOWN after boot) and the SAVED labels of what would be
+    sent (`chutesAnsweredBy`: a preset label → Chutes, a no-space model name → Gemini, anything else → neither).
+    That covers a restart and a cloned card with no chat-format change (`gemini.cpp` is shared with the X4).
+    `aiAsk`, `aiTopicDue`, `ai`, `ai model` and Menu > AI's note ("The next question starts a new topic: a topic
+    never spans Gemini and Chutes.", shown only when the provider rule alone starts one) all use that rule. No
+    break is written at the switch, so a switch away and back before asking keeps the topic. Key info:
+    "...never to Google" plus a topic note. The README privacy text was updated.
+  - `chutes.{h,cpp}` now differ from the X4's `lib/Chutes` only by the X4's preamble, its NOMEM sentence, comment
+    wording ("X4 (review..." vs "the X4's review...") and the phone-side additions: `chutesAnsweredBy`,
+    `chutesChoiceProvider`, `chutesTopicDue`, `CHUTES_TOPIC_SWITCH`, the preset topic-note clause and Key info's
+    notes 4-5. Since the review below, also the two fixes the X4 does not have. The X4's README should drop its
+    finish-rule and rule-3 bullets and the "WiPhone's own copy does not have yet" paragraph.
+  - Tests: `test_chutes` 234/0. `check_ai_glue` has 21 contracts and 183 mutations. 29 in-place mutants were all
+    caught by an assertion, with md5 restores.
+  - `pio run` SUCCESS: RAM 28.1 % (92,108 B), flash 48.0 % (3,144,023 B, +1,580).
+  - 🔁 **The review of those fixes (2026-10-19), two gaps fixed. Host-tested and built; NOT flashed, NOT committed.**
+    (1) A 200 with no text and NO finish_reason (null, a missing key, `{"choices":[]}`) said "sent an empty answer".
+    It is now busy (rule 0), which is COVEY's rule: only `stop` with nothing in it is an empty answer, and
+    `chutesNoTextMessage` says those words only for `stop`. (2) "No text" now means nothing the screen would show.
+    An emoji, a control character or markdown alone used to be TEXT, so with `abort` it said "empty". The new
+    pure `chutesAnswerShown` builds the answer and turns such a reply into EMPTY. `aiRunChutes` calls it once,
+    between the parse and the ladder, and the DONE branch uses that answer (check_ai_glue contract 16 pins it).
+    (3) The boot's-last-provider rule is now tested Chutes→Gemini too. `test_chutes` 247/0. `check_ai_glue` has
+    21 contracts and 187 mutations. 8 in-place mutants were all caught by an assertion, each restore
+    md5-verified. Suite exit 0. `pio run` SUCCESS: RAM 28.1 % (92,108 B), flash 48.0 % (3,144,151 B, +128).
+    🔴 **Owed on the X4** (`~/crosspoint-reader`, read-only for this job): the same two fixes in `lib/Chutes`
+    (rule 0's `|| !r->finish[0]`, `chutesNoTextMessage`'s stop-only "empty", and `chutesAnswerShown` called by
+    AiRun before the ladder), `ChutesTest`'s null-finish line (`ChutesTest.cpp:1027` expects DONE), and its
+    README's difference list.
+  - **Owed on a phone:** switch the Model Gemini↔V4 Flash mid-topic. The menu should show the note, the next answer
+    should get the "New topic" divider, and `ai` should say "starts a new topic (the model in use is not the
+    topic's provider)". Then reboot mid-Chutes-topic and ask Gemini: it should be a new topic (from the labels).
+- **Live from the Mac (13 requests):** firmware-built bodies answered 200 on all four presets (2.2-6.8 s, Content-Length
+  bodies); 401 = `{"detail":"Missing or invalid authorization header(s)"}`, no key = 429 nginx HTML, gone model = 404
+  `{"detail":"model not found: ..."}`.
+- **Owed (bench, phone 1 first):** handshake time to llm.chutes.ai vs the 10 s connect window, with music and without
+  (RSA-2048 leaf + P-256; seven roots parsed now, not five); the worker stack floor (must stay > ~1.5 KB; `ai` prints it -
+  aiRunChutes' frame is 288 B by objdump's `entry`, on top of aiRun's 496, so expect ~0.3 KB under Gemini's ~3.1 KB); one
+  real answer per preset; the fallback on a forced timeout; the key in no Key info / log / `ai` line; Key info's `Model:`
+  row with chutes.txt moved away (and Back to the chat, not out). Then Nick's key on both cards
+  (`tools/wiphone_send.py --app keys chutes.txt`). ⚠ The `*.chutes.ai` certificate renews 2026-11-30: re-check the chain.
+
 📱 **2026-10-11 ~08:40: NH DEVICES COMPANION, the Android app (`android/`), 1.0 beta. Replaces gpsdRelay for the phone hotspot.**
 - **Why:** gpsdRelay stops sending within 1-3 min of a Samsung screen lock (no POST_NOTIFICATIONS). Nick asked for a
   small app, as automatic as possible, which can grow into the companion app for all NH-firmware devices (file

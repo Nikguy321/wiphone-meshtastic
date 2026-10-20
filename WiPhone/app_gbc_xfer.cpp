@@ -160,7 +160,7 @@ static const XferConfig SERIAL_T9_CFG = {
   "/t9", "Add T9 words", ".txt", "word lists", "extra.txt", "WiPhone-T9"
 };
 const XferConfig* xferT9Config() { return &SERIAL_T9_CFG; }
-/* The API-key uploader (`up on keys`): gemini.txt for the AI terminal, from
+/* The API-key uploader (`up on keys`): gemini.txt (and chutes.txt, D-175, and tavily.txt, D-176) for the AI app, from
  * tools/wiphone_send.py --app keys, into the folder the boot makes (WiPhone.ino). On the phone
  * the same thing is Files > API Keys > [ Upload into this folder ]. A key file is only ever
  * stored on the card; nothing here logs what is in it. */

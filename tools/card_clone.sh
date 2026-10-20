@@ -6,9 +6,12 @@
 #
 # Everything on the card is copied - configs, roms, books, photos, messages, the maps - except
 # what macOS itself leaves on a FAT volume (._sidecars, .DS_Store, .Spotlight-V100, .fseventsd,
-# .Trashes) and the owner's API KEYS: any "API Keys" folder and any gemini.txt (Menu > AI; the
-# T-Deck firmware keeps it at the card's root). A card cloned for somebody else must not carry your key; copy a key on purpose,
-# by hand. (A `cardday.sh pull` backup is a different tool and DOES hold the key - keep those
+# .Trashes) and the owner's API KEYS: any "API Keys" folder, any gemini.txt (Menu > AI; the
+# T-Deck firmware keeps it at the card's root), any chutes.txt (Menu > AI's Chutes key, D-175: the
+# phone reads it from /API Keys only, but a stray copy elsewhere is a key all the same) and any
+# tavily.txt (its web search key, D-176, the same) - files_paths.h's filePathIsKeyFile, which
+# tests/check_ai_glue.py holds this list to. A card cloned for somebody else
+# must not carry your key; copy a key on purpose, by hand. (A `cardday.sh pull` backup is a different tool and DOES hold the key - keep those
 # folders private.) Nothing is ever deleted at the destination, so a push onto a card that
 # already has files adds to them. Both directions end with a count of files on each side so a copy that
 # stopped early cannot pass for a finished one.
@@ -24,7 +27,7 @@ set -u
 usage() {
   echo "usage: $0 pull [--no-tiles] /Volumes/<card> <folder>" >&2
   echo "       $0 push [--no-tiles] <folder> /Volumes/<card>" >&2
-  echo "  API keys are never copied: any 'API Keys' folder and any gemini.txt are left out." >&2
+  echo "  API keys are never copied: any 'API Keys' folder, gemini.txt, chutes.txt and tavily.txt are left out." >&2
   exit 2
 }
 
@@ -58,7 +61,8 @@ fi
 
 EXCL=(--exclude '._*' --exclude '.DS_Store' --exclude '.Spotlight-V100' --exclude '.fseventsd'
       --exclude '.Trashes' --exclude '.TemporaryItems' --exclude '.metadata_never_index'
-      --exclude '[Aa][Pp][Ii] [Kk][Ee][Yy][Ss]/' --exclude '[Gg][Ee][Mm][Ii][Nn][Ii].[Tt][Xx][Tt]')
+      --exclude '[Aa][Pp][Ii] [Kk][Ee][Yy][Ss]/' --exclude '[Gg][Ee][Mm][Ii][Nn][Ii].[Tt][Xx][Tt]'
+      --exclude '[Cc][Hh][Uu][Tt][Ee][Ss].[Tt][Xx][Tt]' --exclude '[Tt][Aa][Vv][Ii][Ll][Yy].[Tt][Xx][Tt]')
 
 # --no-tiles leaves the map TILES out (the numbered zoom folders under /maps/<area>) and takes
 # everything else, `pins.txt` included. For the tile pool that is the right trade: the master
@@ -78,7 +82,7 @@ count() {   # files this run is responsible for, not counting the macOS leftover
   [ "$no_tiles" = 1 ] && tiles=(! -path '*/maps/*/[0-9]*')
   # The keys are left out of the count on both sides, as they are out of the copy.
   find "$1" -type f ! -name '._*' ! -name '.DS_Store' ! -name '.metadata_never_index' \
-       ! -ipath '*/API Keys/*' ! -iname 'gemini.txt' \
+       ! -ipath '*/API Keys/*' ! -iname 'gemini.txt' ! -iname 'chutes.txt' ! -iname 'tavily.txt' \
        ${tiles[@]+"${tiles[@]}"} \
        ! -path '*/.Spotlight-V100/*' ! -path '*/.fseventsd/*' ! -path '*/.Trashes/*' \
        ! -path '*/.TemporaryItems/*' | wc -l | tr -d ' '

@@ -505,11 +505,21 @@ AWS Open Data **Terrain Tiles** (USGS 3DEP/NED, SRTM, GMTED and ETOPO, via Mapze
 converted into `/maps/elev` on the card on the Mac, or fetched by the phone itself with a map download
 ("Elevation too", on by default) — see [docs/maps.md](docs/maps.md), "Altitude".
 
-## AI (Gemini)
+## AI (Gemini, or Chutes)
 
 **Menu → AI** (the speech-bubble icon on the main screen) asks Google's Gemini anything you type
 on the keypad, over WiFi. It needs **your own API key**. A key is free, and nothing is built into
 the firmware: this repo is public, so the key lives only on your phone's card.
+
+**Optional (0.9.82-NH dev):** it can instead ask one of four open models on **Chutes** (DeepSeek V4
+Flash, Kimi K2.6, Kimi K2.6 careful, GLM 5.1) with **your own Chutes key** - see
+[Chutes (optional, your own key)](#chutes-optional-your-own-key) below. Without a `chutes.txt` on the
+card nothing changes: the AI is Gemini, exactly as before.
+
+**Optional (D-176):** before a question about something recent it can run **one web search** with
+**your own Tavily key**, for either provider - see
+[Web search (optional, your own Tavily key)](#web-search-optional-your-own-tavily-key) below. Without a
+`tavily.txt` nothing is ever searched.
 
 ### 1. Get a free key
 
@@ -607,6 +617,143 @@ lines, a BOM, Windows line endings, quotes and spaces around `=` are all fine.
 - The chat is saved on the card (`/ai/chat.txt`, up to the last 20 questions or 16 KB, whichever
   is less) and survives a restart.
 
+### Chutes (optional, your own key)
+
+[Chutes](https://chutes.ai) runs open models (DeepSeek, Kimi, GLM) behind an API like OpenAI's. It is
+**paid** - pay as you go, or a monthly plan with a daily number of requests - and a short question
+costs a fraction of a cent. Nothing about it is in the firmware but four model names and the root
+certificates: you bring your own key, and a phone without one never talks to Chutes.
+
+1. On a computer, make an account at **chutes.ai**, add credit or a plan, and create an **API key**.
+   It starts with `cpk_`. Keep it to yourself, like a password; if it leaks, delete it there and make
+   a new one. One key per device is a good idea: a lost phone's key can then be revoked alone.
+2. Make a plain text file named **`chutes.txt`** with one line:
+
+   ```
+   key=cpk_YOUR_KEY
+   ```
+
+   and put it in the **`API Keys`** folder on the card, the same ways as `gemini.txt` (step 2 above;
+   `tools/wiphone_send.py --app keys chutes.txt` from a computer). The phone reads it from
+   `/API Keys/chutes.txt` only. **AI → Menu → Key info** then says `Chutes key found` and
+   `key: set (N chars)` - the length only. (A `cpk_` key put in `gemini.txt` by mistake is refused
+   there - Key info says `this is a Chutes key - put it in chutes.txt` - so it never goes to Google.)
+3. **AI → Menu → Model** picks who answers. With a Chutes key and nothing picked yet, it is
+   **DeepSeek V4 Flash**; without one it is Gemini. The choice is kept (it survives a restart and a
+   new card), and the compose screen says who you are asking (`Ask V4 Flash`). OK on the model
+   already in use changes nothing, so the default stays the default. If the model in use has lost
+   its key file (say `chutes.txt` was removed) while the other one is there, Key info - where the
+   app then opens - has a **Model:** row to pick another, and Back goes to the chat.
+
+| Model | What it is like |
+|---|---|
+| **DeepSeek V4 Flash** | thinks briefly - best all-round (the default with a Chutes key) |
+| **Kimi K2.6** | fast, no thinking, wide knowledge |
+| **Kimi K2.6 careful** | thinks it through, about 15 s |
+| **GLM 5.1** | a second opinion; slow when busy |
+| **Gemini Flash** | Google, free daily limit (as above) |
+
+**Optional lines** in `chutes.txt`: `model=v4flash` (or `kimi`, `kimi_think`, `glm`) - the model to
+use until you pick one in the menu - and `lookup=off` (no Wikipedia lookup; on by default). The same
+comment, quote and line-ending rules as `gemini.txt`.
+
+**How it behaves.** Everything else is the same as with Gemini: today's date, the Wikipedia lookup,
+the chat and its topics, plain ASCII answers (the models' private "thinking" is never shown or
+kept). One difference: **a topic never spans Gemini and Chutes**. The first question to the other
+one starts a new topic, even after a restart. **Menu** then says `The next question starts a new
+topic`, and `ai model` on the console says it too. Moving between the Chutes models keeps the topic.
+An answer the model gave up partway through (Chutes says `abort` or `error`) ends `(cut short)`. If
+it stopped itself, the answer ends `(stopped - GLM 5.1 declined to finish)`. Neither is kept as a
+whole answer. Chutes answers are not streamed: the whole answer arrives at once - 1-7 s measured
+from a computer, plus the phone's own few seconds of secure connection.
+The phone waits up to 60 s (120 s for the two thinking models). If a model is **busy** (Chutes says
+too many requests, or a server error) it is asked once more after 2.5 s, then the **next model**
+once; if it sends **nothing in time** (and **Retry if it times out** is on) the next model is asked
+at once; if Chutes says the model is **gone**, the next model is asked and the phone skips the gone
+one until a restart. Never more than two models for one question, and never Gemini in place of
+Chutes. The line under the answer then says what happened: `GLM 5.1 was busy - Kimi K2.6 answered`.
+The order: V4 Flash → Kimi → GLM; Kimi → V4 Flash → GLM; Kimi careful → V4 Flash → Kimi;
+GLM → Kimi → V4 Flash.
+
+**Privacy.** Your questions (and the earlier ones of the topic) go to Chutes, whose models run on
+GPUs rented from third parties, not to Google. A topic never spans the two providers: the earlier
+exchanges sent with a question are always ones the same provider answered. Google is never sent
+what Chutes was asked or answered, and Chutes is never sent Google's. The phone tells who answered
+from the model name kept under each answer in the saved chat, so this holds after a restart and on
+a card cloned from another phone. The key goes only to Chutes (`llm.chutes.ai`), in a
+header, over a connection checked against built-in root certificates (GoDaddy's, which Chutes uses
+today, plus the Let's Encrypt roots - X1, X2 and the newer YR and YE - and the Google Trust Services
+roots its next certificate may come from).
+
+### Web search (optional, your own Tavily key)
+
+The models' own knowledge is a year or more old, and Wikipedia has no tier lists or patch notes. So,
+before a question about something **recent**, the phone can run **one web search** on
+[Tavily](https://tavily.com) and give the model the top results with the question - for Gemini and
+the Chutes models alike. Nothing about it is in the firmware but the address and the root
+certificates: you bring your own key, and a phone without one never talks to Tavily.
+
+1. On a computer, make an account at **tavily.com** and copy your **API key**. It starts with
+   `tvly-`. The free plan had **1,500 searches a month** in October 2026 and needs no card. Keep the
+   key to yourself (Tavily's terms do not allow sharing one); one key per device is a good idea.
+2. Make a plain text file named **`tavily.txt`** with one line:
+
+   ```
+   key=tvly-YOUR_KEY
+   ```
+
+   and put it in the **`API Keys`** folder on the card, the same ways as `gemini.txt` (step 2 above;
+   `tools/wiphone_send.py --app keys tavily.txt` from a computer). The phone reads it from
+   `/API Keys/tavily.txt` only. **AI → Menu → Key info** then says `Tavily key found` and
+   `key: set (N chars)` - the length only. A `tvly-` key put in `gemini.txt` or `chutes.txt` by mistake
+   is refused there (`this is a Tavily key - put it in tavily.txt`), and a `cpk_` key in `tavily.txt`
+   is refused too, so no key ever goes to the wrong company.
+3. **AI → Menu → Web search** (OK cycles it; the phone remembers it):
+   - **Auto** (the default): a search only when the question has one of these words - latest, newest,
+     new, current, currently, now, today, tonight, yesterday, tomorrow, recent, recently, still,
+     update(d), patch, season, meta, tier, best, top, price(s), cost, release(d), launch(ed),
+     score(s), news, announced, rumor/rumour, leak(ed), trailer, version - or names a year from 2025
+     on, and **at most 15 a day** (a restart does not reset the count; a search that never reached
+     Tavily - no internet, a hotel login page - is not counted). Never for `2+2` or a question
+     of one word. `How many MOA is 3.5 inches at 250 yards?` is not searched; `Marathon best weapon`
+     is.
+   - **Always**: every question (not counted against the 15).
+   - **Off**: never - not even the row below.
+   - **Ask with web search** (in the same menu, with a key and not Off) searches the next question
+     whatever Auto would say. The menu's last line counts today's searches.
+
+**How it behaves.** After the Wikipedia lookup the phone shows `Searching the web...`, asks Tavily
+once (a basic search with Tavily's short summary: 1 credit), and gives the model that **summary** and
+the **top 3 results** that Tavily scores as relevant (0.30 or more: lower ones were off-topic when
+measured) - each one line with its date, site, title and a couple of sentences, at most 1,500
+characters in all - after Wikipedia's background and before the question, with a note to prefer the
+newest source and to treat the results as reference text. The results do not take the place of the
+earlier questions and answers the model is sent with a follow-up. The answer then ends with a
+**`Web:`** line naming the sites (`Web: Tavily summary` when only the summary went), under the
+`Wikipedia:` line if there is one:
+
+```
+Wikipedia: Marathon (2026 video game)
+Web: pcgamer.com; reddit.com
+```
+
+Only the answer is kept: the search results never go in the chat, the card or a log. The search gets
+up to 6 s for the phone's secure connection (the handshake is slow on this processor) and 3 s for
+Tavily's answer, and it is never retried. If it does not work, the question is asked with Wikipedia
+alone and the line says why: `Web: search unavailable`, `Web: Tavily refused the key - check
+tavily.txt`, `Web: search limit reached` (the month's searches are used, or too many at once),
+`Web: no results`, or `Web: not searched - today's 15 automatic searches are used`.
+
+**Privacy.** When web search runs, your question also goes to Tavily (it may keep it to improve its
+service). Off keeps every question away from Tavily. Only the question goes (its first 200
+characters, whitespace tidied) - never the chat, the other keys or the answer. The key goes only to
+Tavily (`api.tavily.com`), in a header, over a connection checked against built-in root certificates
+(Amazon Root CA 1, and the Starfield root that cross-signs it).
+
+**From the cable:** `ai web` shows the setting, the key's length, today's counts and the last search;
+`ai web off|auto|always` sets it; `ai web test <question>` runs one search alone (counted) and `ai web`
+then shows what came back.
+
 ### When something goes wrong
 
 | The phone says | What it means |
@@ -624,8 +771,25 @@ lines, a BOM, Windows line endings, quotes and spaces around `=` are all fine.
 | `Gemini sent an empty answer - ask again` | It stumbled twice in a row (it is asked again once by itself): ask again. |
 | `A call came in - ask again after it` | A call rang while the phone was waiting: the question was stopped for it. |
 | No `Wikipedia:` line under an answer | Nothing was found, no page found was about the question's key words, Wikipedia did not answer (the serial `ai` says why), or `lookup=off` is set. |
+| No `Web:` line under an answer | No search was made: no `tavily.txt`, **Web search** is Off, or (Auto) the question has no recent word or year in it. |
+| `Web: search unavailable` | The search failed (no answer in time, a server error, a reply the phone could not read): the answer is from Wikipedia and the model alone. |
+| `Web: Tavily refused the key - check tavily.txt` | Tavily said the key is wrong (401/403): check it was copied whole, or make a new one. |
+| `Web: search limit reached` | The month's free searches are used (or too many at once): Auto and Always stop finding results until Tavily resets them on the 1st. |
 | `A map download is running` (or a call, a game, the uploader) | One thing at a time: ask again when that is finished. |
 | A question marked failed in the chat | It stays there for reference and is never sent back to Gemini. |
+| `No key - put chutes.txt in API Keys` | A Chutes model is picked in **Menu → Model** but there is no `chutes.txt`: add it, or pick Gemini. |
+| `Chutes refused the key - check chutes.txt` | Chutes did not take the key: check it was copied whole, or make a new one at chutes.ai. |
+| `Chutes said too many requests - check the key in chutes.txt` | Every attempt was answered "too many requests" (none timed out) and Chutes has not answered since the phone started: Chutes sends that to a key it does not know. |
+| `Chutes: your plan's daily requests or balance are used up - check chutes.ai` | Your plan's requests for today, or your balance, ran out. |
+| `Chutes is busy right now - try again in a minute` | Busy after the retry and the next model. A model that gave up before its first word counts as busy, and so does a reply with nothing the phone can show that does not say it was finished. |
+| `... is not offered by Chutes any more` | Chutes stopped serving that model; pick another in **Menu → Model** (a firmware update brings new ones). |
+| `... ran out of room before answering - ask for less` | A thinking model spent the whole answer on thinking: ask a shorter question, or pick Kimi K2.6. |
+| An answer ending `(cut short)` | The model stopped early: it ran out of room, the answer was too long to keep, or Chutes gave up partway (`abort`, `error`). Ask again, or ask for less. |
+| An answer ending `(stopped - <model> declined to finish)` | The model stopped itself partway (Chutes' `content_filter`). |
+| `... declined to answer` | The model stopped itself before saying anything. |
+| `... sent an empty answer` | The model said it had finished but sent nothing the phone can show (only an emoji, say): ask again. |
+| `Secure connection failed - Chutes' certificate did not verify` | Chutes changed to a certificate authority the phone does not know: a firmware update. |
+| `gemini.txt was refused: ... this is a Chutes key - put it in chutes.txt` | The Chutes key went into the Gemini file: move it to `chutes.txt`. It is never sent to Google. |
 
 ### Safety of the key
 
@@ -635,13 +799,19 @@ Wikipedia lookup is checked against the Let's Encrypt roots the phone already ca
 sent nothing but the question's key words (and a User-Agent naming this project, as Wikipedia
 asks): no key, no chat, not the whole question. The key
 is never printed on the serial console (`ai` shows only its length), never logged and never
-drawn: the Files viewer refuses to open anything in `API Keys`, Books never lists `gemini.txt`,
-and `tools/card_clone.sh` leaves the folder out of a cloned card. The WiFi uploader only ever
+drawn: the Files viewer refuses to open anything in `API Keys` (or a `gemini.txt` / `chutes.txt`
+anywhere), Books never lists `gemini.txt` or `chutes.txt`,
+and `tools/card_clone.sh` leaves the folder, and any `gemini.txt` or `chutes.txt`, out of a cloned card. The WiFi uploader only ever
 WRITES into `API Keys`: it never reads, lists or resumes a key file (nobody on the network - which
 may be the phone's open hotspot - can learn whether a key is there or how long it is), and a key
 file is always written whole, so a browser upload of a new key the same length as the old one
 takes too. A key pasted on the `model=` line
-by mistake is ignored rather than used as a model name, and Key info says so.
+by mistake is ignored rather than used as a model name, and Key info says so. The Chutes key goes
+only in the `Authorization` header of requests to `llm.chutes.ai` (never to Google - a `cpk_` key
+in `gemini.txt` is refused - never to Wikipedia, never in a web address, and never along a
+redirect), and Chutes' own error texts are
+never shown: the phone says what went wrong in its own words (a "balance used up" answer from
+Chutes names a payment address, which has no business on your screen or in a log).
 
 ## E-reader
 

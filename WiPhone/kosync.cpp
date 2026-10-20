@@ -1369,7 +1369,9 @@ bool kosyncNotABook(const char* basename) {
   }
   return ksEqNoCase(basename, strlen(basename), "kosync.txt") ||
          ksEqNoCase(basename, strlen(basename), "smsmirror.txt") ||
-         ksEqNoCase(basename, strlen(basename), "gemini.txt");   // Menu > AI's key: opened as a book it would put the key on screen
+         ksEqNoCase(basename, strlen(basename), "gemini.txt") ||   // Menu > AI's key: opened as a book it would put the key on screen
+         ksEqNoCase(basename, strlen(basename), "chutes.txt") ||   // ...and its Chutes key (D-175), should a copy stray
+         ksEqNoCase(basename, strlen(basename), "tavily.txt");     // ...and its web search key (D-176), the same
 }
 
 static void ksReply(char* reply, size_t cap, const char* s) {

@@ -93,7 +93,9 @@ static inline int filePathReroot(const char* srcRoot, const char* dstRoot, const
 
 /* Is `path` a KEY FILE - anything inside a folder named "API Keys" (any case, any depth: FAT is
  * case-blind and a card may be laid out by hand), or a file named gemini.txt anywhere (where the
- * T-Deck firmware keeps one, at the card's root)? The Files viewer refuses to draw these (Menu >
+ * T-Deck firmware keeps one, at the card's root) - or chutes.txt anywhere (D-175: the phone reads it
+ * only from /API Keys, but a stray copy elsewhere is a key all the same), or tavily.txt anywhere
+ * (D-176: the web search's key, the same reason)? The Files viewer refuses to draw these (Menu >
  * AI's key, README "AI"): a screenshot of a key is a leaked key. */
 static inline int filePathIsKeyFile(const char* path) {
   if (!path) {
@@ -108,7 +110,8 @@ static inline int filePathIsKeyFile(const char* path) {
     if (*e == '/' && n == 8 && strncasecmp(p, "API Keys", 8) == 0) {
       return 1;                                /* a folder on the way down */
     }
-    if (*e == '\0' && n == 10 && strncasecmp(p, "gemini.txt", 10) == 0) {
+    if (*e == '\0' && n == 10 && (strncasecmp(p, "gemini.txt", 10) == 0 || strncasecmp(p, "chutes.txt", 10) == 0 ||
+                                   strncasecmp(p, "tavily.txt", 10) == 0)) {
       return 1;
     }
     p = e;

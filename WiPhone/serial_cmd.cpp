@@ -150,7 +150,7 @@ static void help() {
     "  up on      start the WiFi uploader (files land in /roms; refused during a Game Boy game)",
     "  up on books|photos  same, into /books or /photos",
     "  up on maps          same, into /maps - accepts <area>/<z>/<x>/<y>.565 paths",
-    "  up on keys          same, into /API Keys (gemini.txt)",
+    "  up on keys          same, into /API Keys (gemini.txt, chutes.txt)",
     "  up off     stop the uploader",
     "  up         where to point a browser",
     "  sync       poll COVEY for mirrored texts now",
@@ -254,10 +254,15 @@ static void help() {
     "  wx fetch | wx show | wx clear  Refresh's path / the WEATHER screen's rows / delete the cache",
     "  ai         Menu > AI: the key file (its LENGTH, never the key), the chat, the daily",
     "             limits, the last question's HTTP code/model/time/stack floor",
-    "  ai ask <q> ask Gemini through the app's own path (500 chars); `ai` shows progress",
+    "  ai ask <q> ask the model in use through the app's own path (500 chars); `ai` shows progress",
     "  ai last    the newest question and its answer, in full",
-    "  ai topic | ai clear | ai reload  new topic / delete the saved chat / re-read gemini.txt",
+    "  ai topic | ai clear | ai reload  new topic / delete the saved chat / re-read the key files",
     "  ai retry on|off  Menu > AI's \"Retry if it times out\" (NVS; on by default)",
+    "  ai model [gemini|v4flash|kimi|kimi_think|glm|default]  Menu > AI > Model (NVS ai_model;",
+    "             default = v4flash with a Chutes key, else Gemini)",
+    "  ai web [off|auto|always]  Menu > AI's \"Web search\" (NVS ai_web; Auto by default; off",
+    "             without /API Keys/tavily.txt): the setting, the key's LENGTH, today's counts",
+    "  ai web test <q>  ONE Tavily search alone, as a question makes it (counted); `ai web` shows it",
     "  clock      (or `time`) the time, WHO set it (ntp/gps/mesh) and how long ago, and",
     "             what the GPS and mesh paths last decided about it - see clock_source.h",
     "  tz         the time zone: setting, zone, offset, where it came from, Auto's last look",
@@ -837,7 +842,7 @@ static void run(char* line) {
     return;
   }
   if (!strcasecmp(line, "up on keys")) {
-    /* API keys (gemini.txt) into /API Keys: tools/wiphone_send.py --app keys gemini.txt. */
+    /* API keys (gemini.txt, chutes.txt) into /API Keys: tools/wiphone_send.py --app keys gemini.txt. */
     xferStart(xferKeysConfig());
     if (!gbcXferOn() && xferStartError()) {
       say("up: NOT started - %s\n", xferStartError());
@@ -1280,6 +1285,66 @@ static void run(char* line) {
       say("ai: retry if it times out: %s (the next question)\n", aiRetryTimeouts() ? "on" : "off");
       return;
     }
+    /* D-175: `ai model` says which model the next question goes to and why; `ai model <id>` sets it
+     * (the picker's NVS value), `ai model default` clears it. ⚠ Never echoes what was typed: a key
+     * pasted here by mistake must not land in panicwatch's log - an unknown id gets the usage line. */
+    if (!strcasecmp(p, "model") || !strncasecmp(p, "model ", 6)) {
+      const char* id = p + 5;
+      while (*id == ' ') id++;
+      if (*id && !strcasecmp(id, "default")) {
+        aiClearModelChoice();
+      } else if (*id) {
+        const int c = chutesChoiceFind(id);
+        if (c == CHUTES_NOT_A_CHOICE) {
+          say("ai: model gemini | v4flash | kimi | kimi_think | glm | default\n");
+          return;
+        }
+        aiSetModelChoice(c);
+      }
+      aiKeyReload();
+      const int c = aiModelChoice();
+      say("ai: model %s (%s) - %s%s\n", chutesChoiceId(c), chutesChoiceLabel(c),
+          aiModelChoiceStored() ? "set" : "the default (ai_model unset)",
+          aiChoiceUsable(c) ? "" : "; NO usable key file for it - questions are refused");
+      /* The X4's review (2026-10-19): a topic never spans Gemini and Chutes - Menu > AI's note. */
+      bool otherProvider = false;
+      if (aiTopicDue(&otherProvider) && otherProvider) {
+        say("ai: the next question starts a new topic - a topic never spans Gemini and Chutes\n");
+      }
+      return;
+    }
+    /* D-176: `ai web` (the setting, the key's LENGTH, today's counts, the last search), `ai web off|auto|
+     * always`, `ai web test <question>` (one search alone). ⚠ Never echoes what was typed but its length:
+     * a key pasted here by mistake must not land in panicwatch's log - an unknown word gets the usage. */
+    if (!strcasecmp(p, "web") || !strncasecmp(p, "web ", 4)) {
+      const char* a = p + 3;
+      while (*a == ' ') a++;
+      if (!*a) {
+        aiWebReport(sayLine);
+        return;
+      }
+      if (!strncasecmp(a, "test ", 5)) {
+        const char* q = a + 5;
+        while (*q == ' ') q++;
+        char why[96];
+        if (aiWebTest(q, why, sizeof(why))) {
+          say("ai web: searching (%u chars) - `ai web` for what came back\n", (unsigned)strlen(q));
+        } else {
+          say("ai web: NOT searched - %s\n", why);
+        }
+        return;
+      }
+      const int m = webModeFind(a);
+      if (m < 0) {
+        say("ai web: ai web [off|auto|always] | ai web test <question>\n");
+        return;
+      }
+      aiSetWebMode(m);
+      aiKeyReload();
+      say("ai web: %s (the next question)%s\n", webModeLabel(aiWebMode()),
+          aiWebUsable() ? "" : " - no usable tavily.txt: nothing is searched");
+      return;
+    }
     if (!strncasecmp(p, "ask ", 4)) {
       const char* q = p + 4;
       char why[96];
@@ -1290,7 +1355,8 @@ static void run(char* line) {
       }
       return;
     }
-    say("ai: ai | ai ask <question> | ai last | ai topic | ai clear | ai reload | ai retry on|off\n");
+    say("ai: ai | ai ask <question> | ai last | ai topic | ai clear | ai reload | ai retry on|off | ai model [<id>] | "
+        "ai web [off|auto|always|test <q>]\n");
     return;
   }
   /* `replay` — the mesh-history replay's whole state in one line (the feature

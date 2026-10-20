@@ -88,6 +88,17 @@
  * as context (the model would learn to end answers with one, naming pages it was never given). */
 #define GEM_SRC_PREFIX     "Wikipedia: "
 #define GEM_SRC_SEP        "\n\n" GEM_SRC_PREFIX
+/* (D-176) ...and the web search's line ("Web: pcgamer.com; reddit.com", or its short note when no
+ * results went: websearch.h), after the Wikipedia line on a line of its own, or alone after the blank
+ * line. The context strip cuts the whole trailing block - one "Wikipedia:" line, one "Web:" line, or
+ * the two in that order - and nothing else. */
+#define GEM_WEB_PREFIX     "Web: "
+#define GEM_WEB_SEP        "\n\n" GEM_WEB_PREFIX
+/* (D-176) The web search's BLOCK starts with this (websearch.h's WEB_BLOCK_HEAD), alone in the
+ * background or after Wikipedia's and "\n\n" (webAppendBlock): geminiContextFirst finds it so the
+ * block is EXTRA to the context budget - the spec's "the web block is EXTRA" (review 2026-10-19: counted,
+ * its up to 1,500 bytes pushed a 3,600-character earlier exchange out of a follow-up "which of THOSE"). */
+#define GEM_WEB_BLOCK_HEAD "Web results, searched "
 /* Between the background and the question in the question's own turn. */
 #define GEM_BG_QUESTION    "\n\nQuestion: "
 #define GEM_DEFAULT_MODEL  "gemini-flash-latest"
@@ -122,8 +133,25 @@ typedef struct {
   const char* problem;          // why GEM_CFG_BAD_KEY (a literal), else NULL
 } GeminiConfig;
 /* Parse a gemini.txt already in memory. Always fills `out` (defaults where the file is silent).
- * Returns GEM_CFG_*. `out->key` is empty unless GEM_CFG_OK. */
+ * Returns GEM_CFG_*. `out->key` is empty unless GEM_CFG_OK. A CHUTES key (one that starts
+ * GEM_CHUTES_KEY_PREFIX, chutes.h's CHUTES_KEY_PREFIX) is REFUSED - "this is a Chutes key - put it
+ * in chutes.txt" - and wiped: as Gemini's it would go to Google as x-goog-api-key (review
+ * 2026-10-18; chutesParseConfig refuses a Google key the other way). A TAVILY key (D-176, one that
+ * starts GEM_TAVILY_KEY_PREFIX, websearch.h's WEB_KEY_PREFIX) is refused the same way - "this is a
+ * Tavily key - put it in tavily.txt" - and wiped: it would go to Google too. */
+#define GEM_CHUTES_KEY_PREFIX "cpk_"
+#define GEM_TAVILY_KEY_PREFIX "tvly-"
 int  geminiParseConfig(const char* text, size_t len, GeminiConfig* out);
+/* The FILE RULES alone, provider-blind - what geminiParseConfig reads before its own key rule, and
+ * all that chutesParseConfig takes from it (one reader for every key file). Nothing but chutes.cpp and
+ * (D-176) websearch.cpp's webParseConfig calls it: gemini.txt goes through geminiParseConfig
+ * (tests/check_ai_glue.py, contract 17). */
+int  geminiReadKeyFile(const char* text, size_t len, GeminiConfig* out);
+/* Zero `n` bytes at `p` with stores the compiler keeps. A memset right before free() - or of a
+ * local about to go out of scope - is a dead store, and gcc drops it: measured 2026-10-18 in the
+ * firmware's ai_net.cpp.o (xtensa gcc 5.2), where aiKeyReload's wipes of the key file's buffer and
+ * its parse were not in the code at all. Every wipe of a key before free() is this one. */
+void geminiWipe(void* p, size_t n);
 /* A model NAME: [a-z0-9][a-z0-9.-]*, 1..63 characters. Lowercase only, so a key put on the
  * model= line (keys are mixed case) is never taken for one - nor sent in the URL, drawn or
  * printed. model= and fallback= values that fail it, or that equal the key, are DROPPED by
@@ -215,6 +243,14 @@ typedef struct {
 size_t geminiBuildRequest(const GeminiTurnPair* ctx, int nCtx, const char* question,
                           const char* background, const char* sysInstr, int thinkingBudget,
                           char* out, size_t cap);
+/* (D-175) geminiBuildRequest's context rule, shared with chutes.cpp so both providers are sent the
+ * same turns: an answer's length as it goes back as context (its own last "Wikipedia: ..." line cut,
+ * GEM_SRC_SEP), and the oldest context exchange that goes - the newest ones that fit GEM_SEND_TEXT_CAP
+ * together with the question and its background, the oldest dropped first (nCtx: none fits). (D-176)
+ * The background counts up to the web's block (GEM_WEB_BLOCK_HEAD) only: Wikipedia's budget is what it
+ * always was, and the web's block is EXTRA - it never costs the chat an exchange. */
+size_t geminiContextLen(const char* a);
+int    geminiContextFirst(const GeminiTurnPair* ctx, int nCtx, const char* question, const char* background);
 /* JSON string body (no quotes): " and \ escaped, \n kept as \n, \t as \t, \r dropped, other
  * control characters as \u00XX, bytes >= 0x80 passed through. Same length rule as above. */
 size_t geminiJsonEscape(const char* in, char* out, size_t cap);

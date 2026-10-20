@@ -536,8 +536,9 @@ bool   kosyncReloadClears(bool asked, bool readBefore, uint32_t sigBefore, uint3
 
 // ---------------------------------------------------------------- the Books library
 /* Settings files that live beside the books and are NOT books: /books/kosync.txt (it holds
- * the password), smsmirror.txt (at / or /roms) and gemini.txt (Menu > AI's key; the T-Deck
- * firmware keeps it at the card's root). The library scans all three folders for .txt, so
+ * the password), smsmirror.txt (at / or /roms), gemini.txt (Menu > AI's key; the T-Deck
+ * firmware keeps it at the card's root), chutes.txt (Menu > AI's Chutes key, D-175) and tavily.txt (its web
+ * search key, D-176). The library scans all three folders for .txt, so
  * without this they were listed — and opening one showed its secrets on screen. */
 bool kosyncNotABook(const char* basename);
 

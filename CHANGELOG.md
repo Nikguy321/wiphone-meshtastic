@@ -1,6 +1,220 @@
 # Changelog
 
-## 0.9.82-NH (unreleased) - map tiles from the Mac over WiFi, the phone's location from a hotspot, automatic time zones, Wi-Fi location, AI answers that know today
+## 0.9.82-NH (unreleased) - map tiles from the Mac over WiFi, the phone's location from a hotspot, automatic time zones, Wi-Fi location, AI answers that know today, Chutes models, web search
+
+### AI: web search with your own Tavily key - optional, off without it (0.9.82-NH dev, D-176)
+
+Nick (2026-10-19), after asking about the new Marathon's best weapon: "Is there a way to enable search tools so they have
+more current information?" Chutes has no search parameter and Gemini's grounding is not free, so the phone makes ONE
+search itself before the model is asked, the way it already looks Wikipedia up. COVEY's research picked Tavily (a monthly
+free tier with no card, extracted text in one POST, an Amazon root); the spec is COVEY's
+`docs/research/2026-10-19_web_search/D-176_spec.md`. The public rule: off without `/API Keys/tavily.txt`, no key shipped.
+
+- **`tavily.txt`**: `key=tvly-...` (Gemini's file rules; only a `tvly-` key; a `cpk_` key is named as Chutes'). Read from
+  `/API Keys/tavily.txt` only, with the same good-read latch and wipe as the other two; Key info shows its length, never the
+  key. `gemini.txt` and `chutes.txt` now refuse a `tvly-` key ("this is a Tavily key - put it in tavily.txt"), so it never
+  goes to Google or Chutes. Files, Books, the uploader's resume and `tools/card_clone.sh` treat `tavily.txt` as a key
+  anywhere; `.gitignore` too.
+- **Menu > AI > Web search: Off / Auto / Always** (OK cycles; NVS `ai_web`; never set = Auto; without a key the row says
+  "Web search: needs tavily.txt" and opens Key info). **Ask with web search** (only with a key and not Off) searches one
+  question whatever Auto says. Off keeps every question - the forced one too - away from Tavily. A last menu note counts
+  today's searches. Compose says "<model> + web" for a web question.
+- **Auto** searches when the question (folded and lowercased as the Wikipedia keywords are) has a whole word of the spec's
+  38 (latest, new, now, today, best, patch, meta, price, release, news, version...) or a year 2025-2099; never with fewer
+  than 2 words with a letter (`2+2`), never past **15 automatic searches a local day** (NVS `ai_webd` / `ai_webn` /
+  `ai_webo`: a reboot keeps the count; forced and Always searches are counted apart, not capped; only a search whose
+  request was written to Tavily is counted).
+- **The request**: `POST https://api.tavily.com/search`, `Authorization: Bearer` built in PSRAM for the one request and
+  wiped after it, only to `api.tavily.com` (no redirect followed); `{"query":<the question, whitespace collapsed, cut at a
+  word to 200 bytes>,"search_depth":"basic","auto_parameters":false,"topic":"general|news",["time_range":...],
+  "max_results":5,"chunks_per_source":1,"include_answer":"basic","include_raw_content":false}` - news + week for
+  today/tonight/yesterday/news/announced/score(s), general + month for latest/current/now/meta/patch/best/new/release/
+  launch/update/season/tier/version, general with no range otherwise. Never `advanced`, `auto_parameters` true or raw content.
+- **Order and budget**: Wikipedia first, then the search (the one HTTPS worker: one TLS session at a time), then either
+  provider. The handshake has its own 6 s cap and Tavily 6 s to answer (the spec said 3 s; raised on Nick's word; 12 s in all, DNS to the last byte),
+  never retried; Cancel and a call end it. ⚠ The spec's "3 s total" assumed a Pi-speed handshake: from the Mac the TLS 1.2
+  handshake is ~155 ms, but this phone's software ECC takes 2.0-3.1 s on hosts like this one (RSA leaf + P-256), so a
+  3 s total would end nearly every search inside its own handshake.
+- **The reply is parsed as it arrives**: https_worker's tap feeds a streaming JSON parser (any split of the bytes gives the
+  same result) that keeps only `answer`, `results[].title/url/content/score/published_date`, `response_time` and
+  `usage.credits` in
+  fixed buffers - a huge field cut at a UTF-8 character - and, for an error, only a flag that its detail says
+  limit/credit/plan. Nothing raw is kept (the sink's cap is 0).
+- **The block**, after Wikipedia's in the question's own turn: `Web results, searched 2026-10-19:`, the spec's framing line,
+  `Summary: <Tavily's answer, 400 bytes, cut at a sentence end>`, then the top 3 by score of those scored 0.30 or more,
+  one line each (`- <date or undated> <host>: <title, 60>. <content, 250>`, `[...]` out, ASCII-folded), 1,500 bytes at
+  most, cut at a word; no result left, the summary alone; no summary either, no block. Under the answer, after the
+  Wikipedia line: `Web: pcgamer.com; reddit.com` (`Web: Tavily summary` when only the summary went) - or why nothing went:
+  `Web: search unavailable`, `Web: Tavily refused the key - check tavily.txt`, `Web: search limit reached` (429/432/433, or
+  a 4xx naming a limit), `Web: no results`, `Web: not searched - today's 15 automatic searches are used`. The block is
+  EXTRA to the context budget: it never pushes an earlier exchange out of a follow-up. The context strip cuts both lines before an answer goes back. Only the answer is stored: the block
+  never goes in the chat, a log or the card.
+- **TLS (measured 2026-10-19)**: `*.tavily.com` <- Amazon RSA 2048 M01 <- Amazon Root CA 1 (sent as the cross certificate
+  from Starfield Services Root CA G2). Pinned: **Amazon Root CA 1** (SHA-256 `8E:CD:E6:88...AE:98:19:6E`) and **Starfield
+  Services Root CA G2** (`56:8D:69:05...3E:DA:B5`), both from the macOS SystemRootCertificates keychain and verified against
+  the live chain with python ssl (OpenSSL 3.5.8): each alone verifies, ISRG X1 alone fails. TLS 1.2 with ECDHE P-256:
+  ECDHE-RSA-AES128-GCM-SHA256 and -AES256-GCM-SHA384 accepted (the CBC and ECDSA suites refused): mbedTLS 2.16 and the curve
+  wrap as they are. New `amazon_roots.h`.
+- **Bench**: `ai web` (the setting, the key's length, today's counts, the last search's code/ms/results/credits), `ai web
+  off|auto|always`, `ai web test <question>` (the search alone, counted; `ai web` then prints the block - the bench only).
+  `ai` gains the same lines. Nothing typed is echoed but its length; the key never.
+- **Code**: new pure `websearch.h/.cpp` (no Arduino or IDF header, no allocation, no recursion - the X4 copies it next) with
+  `tests/test_websearch.cpp` (185 checks); `ai_net` (`webKeyReload`, NVS, `aiWebSearch`, the tap, `aiWebTest`,
+  `aiWebReport`), `app_ai` (the two rows, Key info's Tavily section with the spec's privacy words), `serial_cmd` (`ai web`),
+  `gemini.cpp` (the `tvly-` refusal; the context strip knows the `Web:` line), `chutes.cpp` (names a Tavily key). Glue:
+  `tests/check_ai_glue.py` contracts 22-25 (the Bearer only to api.tavily.com, the roots, the decision and the count, the
+  block never stored) and a gap closed in contract 7 (the lookup's own heap bar) - 25 contracts, 268 mutations caught.
+  In-place mutants of the key rules: 30 of 30 caught by an assertion, each file restored and md5-verified (11 on the key
+  rules - tvly- only, "tvly-" alone, the scratch wipe, a cpk_ key named, the shape, the key in Key info's line, the
+  Bearer rule twice, gemini.txt's tvly- refusal and its wipe, chutes.txt naming it - and 19 on the trigger, cap, body,
+  parser, block and strip rules). The first run caught 28: the two misses (the key's first 8 characters in Key info's
+  line; a 4-byte character landing at a buffer's edge) made `noKey` check every 6-byte window of the key and the
+  huge-field test sweep all 7 alignments. `./tests/run_tests.sh` exit 0. `pio run` SUCCESS: RAM 28.1 % (92,140 B, +32),
+  flash 48.3 % (3,168,503 B, +24,352: `websearch.o` is 14.5 KB of text, the two PEMs ~3 KB).
+- **The review (2026-10-19), fixed**: the spec's measured tweaks were not in the first build - now `include_answer`
+  `"basic"` and the `Summary:` line, results under score 0.30 dropped, the top 3, the cap 15 a day (every text that names
+  it follows `WEB_DAILY_AUTO`), Key info's plan figure the measured 1,500, and a fixture in the measured shape (`id`,
+  `raw_content` null, no date, no usage; made-up text, the measured scores). The web block counted against the shared
+  context budget (`geminiContextFirst`), so a follow-up that searched could lose the exchange it followed up, for Gemini
+  and Chutes alike: it now counts Wikipedia's block only (`GEM_WEB_BLOCK_HEAD`). A long URL, title or date marked the
+  whole result cut, so a complete excerpt got a false `...` (now only the content's own cut does; and never `....`). A
+  search that never reached Tavily (DNS, a refused handshake behind a hotel login, the heap bar) used up the day's
+  automatic ones: only a sent request is counted now (COVEY's rule). `ai web test` left a Clear chat or New topic asked
+  during it latched, so the NEXT question's answer was dropped or its topic broken again: its branch resets both. `ai
+  web` could print an earlier question's block after a test that ended at the worker's gate: the test wipes the buffer
+  first, the print needs this test's own block, and a question's copy is wiped once it is in the turn. Glue contracts 26
+  (the stage and every failure's note reach the screen) and 27 (a bench search leaves nothing behind), and contract 24
+  now pins OK on "Ask with web search" and the sent-only count. `test_websearch` 218 checks; `check_ai_glue` 27
+  contracts, 284 mutations caught. In-place mutants reverting each fix: 26 of 26 caught by an assertion, every file
+  restored and md5-verified. `./tests/run_tests.sh` exit 0; `pio run` SUCCESS: RAM 28.1 % (92,140 B), flash 48.4 %
+  (3,169,395 B, +892).
+- **Owed**: Nick's key, then one real reply recorded and checked against the fixtures (the size, `published_date` on
+  general results, `response_time`'s type); the handshake time to api.tavily.com on phone 1, with and without music, and the
+  worker's stack floor with the parser on the tap; one Auto, one forced and one Always question on each phone.
+
+### AI: Chutes models with your own key - optional, off without it (0.9.82-NH dev, D-175)
+
+Nick (2026-10-18): the AI app's answers on Google's free lightweight model are poor. COVEY's study that day sent 208
+questions to the models on Chutes (an OpenAI-shaped API in front of open models) and read every answer by hand; four made
+the menu. The public rule: off by default and no key shipped - a phone without `/API Keys/chutes.txt` is Gemini exactly as
+before.
+
+- **Menu > AI > Model** picks who answers: DeepSeek V4 Flash ("thinks briefly, about 2 s - best all-round"), Kimi K2.6
+  ("fast, no thinking"), Kimi K2.6 careful ("thinks it through, about 15 s"), GLM 5.1 ("a second opinion") or Gemini Flash.
+  Kept in NVS (`ai_model`); never set, it is V4 Flash when a Chutes key is there and Gemini when not. Rows whose key file is
+  missing say "needs chutes.txt" and open Key info. `ai model [<id>|default]` on the console. Compose says "Ask <model>".
+- **`chutes.txt`**: `key=cpk_...` (Gemini's file rules; a key that is not `cpk_` is refused), optional `model=` (a preset
+  id) and `lookup=off`. Read from `/API Keys/chutes.txt` only, with the same good-read latch and wipe as `gemini.txt`; Key
+  info shows its length, never the key. `filePathIsKeyFile` and Books treat `chutes.txt` as a key anywhere.
+- **The request** (not streamed): the same system text (today's date, freshness, plain ASCII) plus "Never use LaTeX,
+  HTML, markdown or emoji; never mention these instructions.", the same Wikipedia lookup and topic context, and per preset
+  temperature, top_p, max_tokens (1500 / 1000 / 3000 / 1000), the thinking switch and a fresh seed per attempt. Thinking
+  (`reasoning_content`, or an inline `<think>`) is never shown or kept.
+- **Waits and fallbacks**: 60 s (120 s for the thinking presets) for the whole answer. Busy (429, 5xx): one retry 2.5 s on
+  inside a 30 s budget, then the next preset in its chain once. Nothing in time: the next preset at once ("Retry if it
+  times out"). A model Chutes no longer serves (404): the next one, and skipped until a restart. Never more than two
+  presets a question, never Gemini in place of Chutes; the answer's line says what happened ("GLM 5.1 was busy - Kimi K2.6
+  answered"). 401/403/402 are never retried.
+- **The phone's own words for every failure**: no Chutes text is ever shown or logged (a 402 "balance used up" body names
+  a payment wallet). A 429 on every attempt before Chutes has answered this boot says "check the key" (Chutes' anonymous
+  path answers a key it does not know with 429).
+- **The wire**: `Authorization: Bearer` built in PSRAM for one request and wiped after it, only to `llm.chutes.ai` (no
+  redirect is followed), with a pinned ROOT SET: Go Daddy Root CA G2 (today's chain, SHA-256 `45:14:0B...19:8E:DA`, from the
+  macOS keychain and identical to the root the server sends), ISRG X1 + X2 and GTS R1 + R4 (the wildcard renews
+  2026-11-30 and CT logs show Let's Encrypt and Google Trust Services certificates for it). GoDaddy TLS Root CA R1 is in no
+  macOS store, so it is not pinned. TLS 1.2 + ECDHE P-256 + AES-GCM measured: mbedTLS 2.16 and the curve wrap as they are.
+- **Measured 2026-10-18 from the Mac** with bodies built by the firmware's own `chutesBuildRequest` and replies read by its
+  own `chutesParseReply`: all four presets answered 200 in 2.2-6.8 s (Content-Length bodies, 615-2,512 bytes); thinking off
+  gave 0 reasoning tokens.
+- **Code**: new pure `chutes.h/.cpp` (presets, chains, config, body, parser, `<think>` strip, ladder, words) with
+  `tests/test_chutes.cpp` (186 checks); `ai_net` (the second key, NVS `ai_model`, `postOnceChutes`, `aiRunChutes`, `ai`
+  lines), `app_ai` (the Model row and picker, Key info's Chutes section); `gts_roots.h` (Gemini's GTS pair, moved unchanged)
+  and `godaddy_roots.h`; `tests/check_ai_glue.py` contracts 14-20 (the Bearer only to llm.chutes.ai, the roots, the Chutes
+  loop, no key in any log/screen/console line, the choice copied at ask time, and the review's 18-20 below); 43 + 40
+  mutants checked in place, all caught by an assertion. Gemini's behaviour is unchanged (its context rule is now a shared
+  function, the same code) but for the review's two hardenings below. NOT flashed or benched yet.
+- **Review fixes (2026-10-18, before any flash)**:
+  - The `<think>` strip runs only at the START of an answer: a mid-sentence "<think>" (an answer ABOUT the tag) cut the
+    rest silently - no "(cut short)" - and saved the cut answer to the chat. A prompt-opened `...</think>answer` is cut only
+    for a thinking preset whose thinking came in no reasoning field (all four use the field today), and then through the
+    first `</think>` whatever the thinking holds.
+  - "Check the key in chutes.txt" needs EVERY attempt of the boot's first question to be a 429: a timeout or a drop among
+    them is a request Chutes held, which a key it does not know never gets - it now says "busy".
+  - A model that has left Chutes is gone for every preset that sends it: Kimi K2.6 and Kimi careful share one id, and the
+    twin was the next asked (a request sure to 404, under a "not offered any more - asking Kimi K2.6..." line).
+  - The wipes of the key file's read buffer and its parse were memsets right before `free()`, which gcc drops as dead
+    stores (measured in `ai_net.cpp.o`: the key stayed in freed PSRAM): now `geminiWipe` (volatile stores, kept - re-checked
+    in the new object), for chutes.txt and gemini.txt, and both loops' reply.
+  - A Chutes key (`cpk_`) in `gemini.txt` is refused ("this is a Chutes key - put it in chutes.txt") instead of being sent
+    to Google as `x-goog-api-key`; `chutes.txt` is read by the same rules through the provider-blind `geminiReadKeyFile`.
+  - The root set adds ISRG Root YR and Root YE (seven roots, ~12.6 KB of PEM parsed into PSRAM per handshake): a Let's
+    Encrypt renewal served with the short Gen-Y chain has its anchor there, as the weather and Wi-Fi location already
+    measured.
+  - Key info is no longer a trap: with the model in use keyless (a chutes.txt removed) and the other key there, Back went
+    out of the app on every open and Menu > Model was unreachable. Back now leaves only with NO key at all; Key info gets a
+    `Model:` row to the picker; OK on the row already in use no longer pins the default. The uploader's green line names
+    the file of the model in use (`chutes.txt found - Back to use it.`) instead of "Key found" for either.
+  - `tools/card_clone.sh` leaves a stray `chutes.txt` (any case, any folder) out of a cloned card and its count.
+  - `check_ai_glue` (20 contracts, 168 self-test mutations): every read of a key field, the Bearer header, the key file's
+    buffer and the parse's local is allowlisted (four leaks through names the old list did not know passed it); the raw
+    body (`netWorkerSink()`, a 402 names a wallet) and raw text go only into the parsers; the Chutes branch returns before
+    Gemini's loop; the latch, `aiChoiceUsable`, "Chutes has answered" and the gone memory are pinned; no memset before
+    free; Key info's exits; the clone script against `filePathIsKeyFile`. `test_chutes`' vacuous "the key is never in a
+    body" check is gone (its guard is contract 16); its "check the key" test now runs the firstOfBoot=false case.
+- **The X4's review fixes, brought back (2026-10-19)**. The X4's port of `chutes.{h,cpp}` was reviewed on 2026-10-19
+  and three faults it shares with the phone were fixed there. Here they are on the phone, with the same rules:
+  - **Only `stop`, `length` and `content_filter` end an answer** (COVEY's `FINISHES`). vLLM's and SGLang's `abort`
+    and newer vLLM's `error` are generations that failed. After text, such an answer now ends " (cut short)". It was
+    shown, saved and sent back as context as though whole. `content_filter` after text now ends
+    " (stopped - GLM 5.1 declined to finish)", naming the preset that answered: `chutesAnswerText` takes it, and
+    `aiRunChutes` passes `l.cur`. A 200 with no text and such a finish is busy: one retry, then the fallback. It
+    used to say "sent an empty answer".
+  - **A gone model is remembered before the attempt cap.** A 404 (or a 400 naming the model) on a question's fourth
+    request said "not offered by Chutes any more" but did not record it. The next question then spent its one
+    fallback on that model again.
+  - **A topic never spans Gemini and Chutes.** The earlier exchanges sent with a question went to whichever provider
+    was in use, so a switch sent Chutes' answers to Google and Google's to Chutes. The README's privacy line said
+    Chutes questions go "not to Google". Now the first question to the other provider starts a new topic. The rule is the new pure
+    `chutesTopicDue`, and it checks two things. The first is the provider this boot's last question went to,
+    failures included. The second is who answered each exchange the question would be sent, read from the label
+    saved under it. Chutes labels always begin with a preset's label and contain a space. Gemini's are a model
+    name with no space, and anything else counts as neither provider's. Because the labels come from the saved
+    chat, the rule holds after a restart and on a card cloned from another phone. The chat file is unchanged:
+    its format is shared with the X4. When the model in use is the other provider than the topic's, Menu > AI
+    shows "The next question starts a new topic: a topic never spans Gemini and Chutes." `ai model` and `ai` say
+    so too. A preset's topic note adds ", and on a change to Gemini". Gemini's note keeps the words of before.
+    Key info now says Chutes questions go "never to Google", and adds "A topic never spans Gemini and Chutes: a
+    change between them starts a new one, so neither is sent what the other was asked or answered." Moving
+    between presets keeps the topic.
+  - Tests: `test_chutes` 234 checks (186 before) covers the finish fixtures (abort, error, tool_calls and
+    content_filter, with and without text and sources, a content past the cap, a buffer too small for the note).
+    It also covers the ladder's busy path for a 200 with no text and a failed finish, a gone model on the last
+    attempt, every label either provider writes, and `chutesTopicDue` over a restart (the chat saved and read
+    back) and a cloned card. `check_ai_glue` contract 21 pins the device side (aiAsk's topic,
+    `s_m->topicLast`, `aiTopicDue`, `ai`, `ai model`, Menu > AI's note). Contract 16 now requires the answering
+    preset. The suite has 21 contracts and 183 self-test mutations. 29 more mutants were made in place, each
+    with a backup and an md5-verified restore. Every one was caught by an assertion.
+- **The review of those fixes (2026-10-19)** found two gaps, both fixed:
+  - **No text and no finish_reason is busy too** (COVEY's rule; COVEY's `chutes.py` credits it to the X4's
+    review). A 200 whose content was null or "" and whose finish_reason was null or missing still said
+    "DeepSeek V4 Flash sent an empty answer", with no retry and no fallback. The ladder's rule 0 now sends it to
+    the busy rule: one retry, then the fallback. `{"choices":[]}` gets the same treatment. Only a model that said
+    `stop` with nothing in it "sent an empty answer". `chutesNoTextMessage` keeps those words for `stop` alone.
+    For any other finish it uses the busy words, though the ladder never ends a question on one.
+  - **"Any text" is what the screen shows.** The parser counts any byte that is not blank as text, so a reply
+    of only an emoji, a control character, a zero-width space or a markdown marker was TEXT. The ladder then
+    ended the question on it, and the cleaner left nothing to show. With `abort` it said "sent an empty answer".
+    `aiRunChutes` now builds the answer once with the new pure `chutesAnswerShown`, after the parse and before
+    the ladder. That function turns a TEXT reply that shows nothing into EMPTY, so the ladder reads the finish
+    as it would for no text. The DONE branch uses the answer already built.
+  - The boot's-last-provider topic rule was tested in only one direction. A test now covers a Gemini topic, then
+    a failed Chutes question, then Gemini again.
+  - Tests: `test_chutes` has 247 checks (234 before). `check_ai_glue` contract 16 now pins `chutesAnswerShown`
+    between `chutesParseReply` and `chutesLadderNext`, called once and with no `chutesAnswerText` beside it, and
+    a DONE that is an answer only for a TEXT with words. The raw text's allowlist names `chutesAnswerShown` in
+    place of `chutesAnswerText`. The suite has 21 contracts and 187 self-test mutations. 8 more mutants were made
+    in place, each with a backup and an md5-verified restore, and an assertion caught every one. ⚠ The X4's
+    `lib/Chutes` does not have these two fixes yet (its review left it read-only here).
 
 ### AI: today's date, a Wikipedia lookup, longer waits, retry if it times out (0.9.82-NH)
 

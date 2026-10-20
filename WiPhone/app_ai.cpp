@@ -7,6 +7,8 @@
 #include "app_books.h"          // bookRenderRun + fontMeasure: the Files viewer's and the e-reader's
 #include "ai_net.h"
 #include "gemini.h"
+#include "chutes.h"             // D-175: the choices' words, Key info's Chutes notes (measured by test_chutes)
+#include "websearch.h"          // D-176: the web search's rows and Key info's Tavily notes (measured by test_websearch)
 
 #include <esp_heap_caps.h>
 #include <string.h>
@@ -21,6 +23,10 @@ static const MenuOption::keyType ROW_NO      = 6;
 static const MenuOption::keyType ROW_UPLOAD  = 7;
 static const MenuOption::keyType ROW_RELOAD  = 8;
 static const MenuOption::keyType ROW_RETRY   = 9;
+static const MenuOption::keyType ROW_MODEL   = 10;   // D-175: "Model: <short>"
+static const MenuOption::keyType ROW_WEB     = 11;   // D-176: "Web search: <mode>" (OK cycles it)
+static const MenuOption::keyType ROW_ASKWEB  = 12;   // D-176: "Ask with web search"
+static const MenuOption::keyType ROW_PICK    = 20;   // ...and the picker's rows, 20 + chutesChoiceAt's row (20-24)
 
 #define AI_FONT         AKROBAT_BOLD_18        // the transcript: the Files viewer's face
 #define AI_SMALL_FONT   AKROBAT_BOLD_16        // the model under an answer, the strips, the status box
@@ -57,17 +63,23 @@ AiApp::AiApp(LCD& disp, ControlState& state, HeaderWidget* header, FooterWidget*
   memset(&prog, 0, sizeof(prog));
   progGen = progSec = 0;
   memset(&key, 0, sizeof(key));
+  memset(&ckey, 0, sizeof(ckey));
+  memset(&wkey, 0, sizeof(wkey));
+  askWeb = false;
+  title[0] = '\0';
   xferSeen = 0;
   /* Read gemini.txt now, every time the app opens (a key put on the card since works at once).
    * No key: the first screen says how to get one. A question still in flight from a visit
    * before: back to its status. */
   aiKeyReload();
   aiKeyInfo(&key);
+  aiChutesKeyInfo(&ckey);
+  aiWebKeyInfo(&wkey);
   aiLoopTick();
   if (aiRequestActive()) {
     aiProgress(&prog);
     enterState(prog.cancelled ? AI_TRANSCRIPT : AI_WAITING);
-  } else if (!key.usable && (!aiChat() || aiChat()->n == 0)) {
+  } else if (!choiceUsable() && (!aiChat() || aiChat()->n == 0)) {
     enterState(AI_KEYINFO);
   } else {
     enterState(AI_TRANSCRIPT);
@@ -84,6 +96,11 @@ AiApp::~AiApp() {
   free(text);
   text = NULL;
   controlState.msAppTimerEventPeriod = 0;    // do not leave the CPU waking for a closed app
+}
+
+/* The choice in use (NVS ai_model, or the default rule: no chutes.txt = Gemini) has a key. */
+bool AiApp::choiceUsable() {
+  return aiChoiceUsable(aiModelChoice());
 }
 
 /* Predictive text belongs to COMPOSE and dies with it (app_meshtastic.cpp's lesson: a t9Field
@@ -126,6 +143,9 @@ void AiApp::enterState(AiState s) {
   freeWidgets();
   appState = s;
   note = NULL;
+  if (s != AI_COMPOSE) {
+    askWeb = false;                       // D-176: "Ask with web search" is for the one compose it opens
+  }
   switch (s) {
   case AI_TRANSCRIPT:
     header->setTitle("AI");
@@ -151,7 +171,10 @@ void AiApp::enterState(AiState s) {
     buildConfirm();
     break;
   case AI_COMPOSE:
-    header->setTitle("Ask Gemini");
+    /* "Ask Gemini", as before - or (D-176) "Kimi careful + web" for a web question (test_websearch
+     * measures every one: "Ask Kimi careful + web" ran into the header's icons). */
+    snprintf(title, sizeof(title), askWeb ? "%s + web" : "Ask %s", chutesChoiceShort(aiModelChoice()));
+    header->setTitle(title);
     // "Clear", not "Cancel": the key under it is BACK, which is backspace in a text field.
     // Cancel is END (app_meshtastic.cpp's compose, the same rules).
     footer->setButtons("Ask", "Clear");
@@ -168,6 +191,11 @@ void AiApp::enterState(AiState s) {
     xferSeen = xferFilesAdded();
     xferStart(xferKeysConfig());          // /API Keys, made if missing (no card at boot = no folder)
     break;
+  case AI_MODELS:
+    header->setTitle("Model");
+    footer->setButtons("Select", "Back");
+    buildModels();
+    break;
   }
   armTimer();
 }
@@ -176,17 +204,67 @@ void AiApp::enterState(AiState s) {
 
 void AiApp::buildMenu() {
   menu = newMenu();
+  const int choice = aiModelChoice();
   menu->addOption("Ask a question", ROW_ASK);
+  /* D-176: one question with a web search - only when one could go (a usable tavily.txt, and not Off:
+   * Off keeps every question away from Tavily). */
+  const bool webUsable = aiWebUsable();
+  const int webMode = aiWebMode();
+  if (webUsable && webMode != WEB_OFF) {
+    menu->addOption(WEB_ASK_ROW, ROW_ASKWEB);
+  }
+  /* D-175: which model, by its short name (test_chutes measures every one in this Akrobat 20 row). */
+  snprintf(line, sizeof(line), "Model: %s", chutesChoiceShort(choice));
+  menu->addOption(line, ROW_MODEL);
+  /* D-176: "Web search: Off|Auto|Always" (OK cycles, NVS ai_web) - "needs tavily.txt" without a key. */
+  webModeRow(webMode, webUsable, line, sizeof(line));
+  menu->addOption(line, ROW_WEB);
   menu->addOption("New topic", ROW_TOPIC);
   menu->addOption("Clear chat...", ROW_CLEAR);
   menu->addOption("Key info", ROW_KEYINFO);
   /* Round 3: a toggle, OK flips it (NVS, ai_net.h). Its words come from gemini.h, where the suite
    * measures both states against this menu's Akrobat 20 (one row, 183 of 220 px). */
   menu->addOption(aiRetryTimeouts() ? GEM_RETRY_LABEL ": On" : GEM_RETRY_LABEL ": Off", ROW_RETRY);
-  menu->addNoteWrapped("New topic: Gemini forgets the earlier questions (they stay on screen). A "
-                       "topic also starts by itself two hours after the last question.");
-  menu->addNoteWrapped("Retry if it times out: when Gemini sends nothing in time, ask once more, then "
-                       "Flash-Lite once.");
+  /* The X4's review (2026-10-19): a topic never spans Gemini and Chutes. When the model in use is the
+   * other provider than the topic's - picked here, or chutes.txt come or gone - the next question
+   * starts one, and the menu says so first (aiTopicDue: aiAsk's own rule). New topic and the two-hour
+   * gap say nothing new here: a phone without chutes.txt never shows it. */
+  bool otherProvider = false;
+  if (aiTopicDue(&otherProvider) && otherProvider) {
+    menu->addNoteWrapped(CHUTES_TOPIC_SWITCH);
+  }
+  /* The two notes name the model in use; Gemini's are the words of before (chutes.cpp, measured). */
+  chutesTopicNote(choice, line, sizeof(line));
+  menu->addNoteWrapped(line);
+  chutesRetryNote(choice, line, sizeof(line));
+  menu->addNoteWrapped(line);
+  if (webUsable) {
+    int autoN = 0, otherN = 0;
+    aiWebToday(&autoN, &otherN);
+    webTodayNote(autoN, otherN, line, sizeof(line));   // "Web searches today: 3 of 15 automatic, 1 other."
+    menu->addNoteWrapped(line);
+  }
+}
+
+/* D-175: the five choices, a row each with its note under it (Akrobat 20 over Akrobat 16, five to a
+ * screen like Meshtastic's lists - test_chutes measures them; two of COVEY's notes are wider than the
+ * row and scroll when selected). A row whose key file is missing says so instead of its note. */
+void AiApp::buildModels() {
+  menu = new MenuWidget(0, header->height(), lcd.width(), lcd.height() - header->height() - footer->height(),
+                        NULL, fonts[AKROBAT_BOLD_20], N_MENU_ITEMS, 8);
+  menu->setStyle(MenuWidget::DEFAULT_STYLE, WHITE, BLACK, BLACK, GREEN);
+  const int cur = aiModelChoice();
+  int curRow = 0;
+  for (int row = 0; row < CHUTES_CHOICES; row++) {
+    const int c = chutesChoiceAt(row);
+    snprintf(line, sizeof(line), c == cur ? "%s (in use)" : "%s", chutesChoiceLabel(c));
+    menu->addOption(line, aiChoiceUsable(c) ? chutesChoiceNote(c) : chutesChoiceNeeds(c),
+                    ROW_PICK + (MenuOption::keyType)row, 1);
+    if (c == cur) {
+      curRow = row;
+    }
+  }
+  menu->select(ROW_PICK + (MenuOption::keyType)curRow);
 }
 
 void AiApp::buildConfirm() {
@@ -200,8 +278,21 @@ void AiApp::buildConfirm() {
 void AiApp::buildKeyInfo() {
   aiKeyReload();
   aiKeyInfo(&key);
+  aiChutesKeyInfo(&ckey);
+  aiWebKeyInfo(&wkey);
   menu = newMenu();
   char buf[160];
+  const int choice = aiModelChoice();
+  snprintf(buf, sizeof(buf), "Model in use: %s (Menu > Model).", chutesChoiceLabel(choice));
+  menu->addNoteWrapped(buf);
+  /* The way out when the model in use has no key but the other provider's does (review 2026-10-18):
+   * with an empty chat the app opens HERE, and the picker was reachable only through the menu - which
+   * Back never got to (it closed the app). The picker, from where the user is. */
+  const bool modelRow = !aiChoiceUsable(choice) && (key.usable || ckey.usable);
+  if (modelRow) {
+    snprintf(line, sizeof(line), "Model: %s", chutesChoiceShort(choice));
+    menu->addOption(line, ROW_MODEL);
+  }
   if (key.state == AI_KEY_OK) {
     snprintf(buf, sizeof(buf), "Key found in %s", key.path ? key.path : "?");
     menu->addNoteWrapped(buf);
@@ -215,7 +306,7 @@ void AiApp::buildKeyInfo() {
                                       "read before is still used."
                                     : "The card would not give up gemini.txt - try again.");
   } else {
-    menu->addNoteWrapped("No key yet. The AI needs your own (free) Gemini API key, in a file on "
+    menu->addNoteWrapped("No Gemini key yet. Gemini needs your own (free) API key, in a file on "
                          "the card.");
   }
   if (aiQuotaNote(buf, sizeof(buf)) > 0) {
@@ -238,7 +329,43 @@ void AiApp::buildKeyInfo() {
                        "Wikipedia, and Gemini is given what it finds.");
   menu->addNoteWrapped("Such an answer ends with a Wikipedia: line. lookup=off in gemini.txt "
                        "stops the lookup.");
-  menu->select(ROW_UPLOAD);
+  /* D-175: Chutes, optional - its file's state (the length, never the key), then how to get one. */
+  if (ckey.state == AI_KEY_OK) {
+    snprintf(buf, sizeof(buf), "Chutes key found in %s", ckey.path ? ckey.path : AI_CHUTES_FILE);
+    menu->addNoteWrapped(buf);
+    menu->addNoteWrapped(ckey.line);       // "key: set (102 chars), model= kimi" - never the key
+  } else if (ckey.state == AI_KEY_BAD) {
+    menu->addNoteWrapped(AI_CHUTES_FILE " was refused:");
+    menu->addNoteWrapped(ckey.line);
+  } else if (ckey.state == AI_KEY_UNREADABLE) {
+    menu->addNoteWrapped(ckey.usable ? "The card would not give up chutes.txt just now - the key read "
+                                       "before is still used."
+                                     : "The card would not give up chutes.txt - try again.");
+  } else {
+    menu->addNoteWrapped("No Chutes key (optional).");
+  }
+  for (const char* const* p = CHUTES_KEYINFO_NOTES; *p; p++) {
+    menu->addNoteWrapped(*p);
+  }
+  /* D-176: Tavily, optional - its file's state (the length, never the key), then how to get one, the
+   * setting and the privacy words (WEB_PRIVACY: the README's too). */
+  if (wkey.state == AI_KEY_OK) {
+    menu->addNoteWrapped("Tavily key found in " AI_TAVILY_FILE);
+    menu->addNoteWrapped(wkey.line);       // "key: set (41 chars)" - never the key
+  } else if (wkey.state == AI_KEY_BAD) {
+    menu->addNoteWrapped(AI_TAVILY_FILE " was refused:");
+    menu->addNoteWrapped(wkey.line);
+  } else if (wkey.state == AI_KEY_UNREADABLE) {
+    menu->addNoteWrapped(wkey.usable ? "The card would not give up tavily.txt just now - the key read "
+                                       "before is still used."
+                                     : "The card would not give up tavily.txt - try again.");
+  } else {
+    menu->addNoteWrapped("No Tavily key (optional): no web search.");
+  }
+  for (const char* const* p = WEB_KEYINFO_NOTES; *p; p++) {
+    menu->addNoteWrapped(*p);
+  }
+  menu->select(modelRow ? ROW_MODEL : ROW_UPLOAD);
 }
 
 // ---- compose ------------------------------------------------------------------------------------
@@ -263,7 +390,7 @@ void AiApp::ask() {
   if (!q || !q[0]) {
     return;
   }
-  if (aiAsk(q, noteBuf, sizeof(noteBuf))) {
+  if (aiAsk(q, noteBuf, sizeof(noteBuf), askWeb)) {   // D-176: askWeb - "Ask with web search"
     enterState(AI_WAITING);
   } else {
     note = noteBuf;
@@ -372,9 +499,13 @@ void AiApp::buildTranscript() {
   builtPending = pending != NULL;
   if ((!c || c->n == 0) && !pending) {
     segAdd(SEG_META);
-    put("Ask Gemini anything.\n\nOK: type a question.\nMenu: New topic, Clear chat, Key info.\n"
-        "Up/Down: page through the chat.\n\nThe chat is saved on the card. Gemini sees the "
-        "questions of the current topic; a topic starts by itself two hours after the last "
+    const char* who = chutesChoiceShort(aiModelChoice());   // "Gemini", as before, or "V4 Flash"...
+    put("Ask ");
+    put(who);
+    put(" anything.\n\nOK: type a question.\nMenu: Model, New topic, Clear chat, Key info.\n"
+        "Up/Down: page through the chat.\n\nThe chat is saved on the card. ");
+    put(who);
+    put(" sees the questions of the current topic; a topic starts by itself two hours after the last "
         "question, or by hand from the menu.");
     return;
   }
@@ -508,13 +639,19 @@ void AiApp::drawStatus() {
   const uint32_t now = millis();
   const uint32_t secs = (now - prog.startMs) / 1000;
   if (prog.waitUntilMs && (int32_t)(prog.waitUntilMs - now) > 0) {
+    const unsigned again = (unsigned)((prog.waitUntilMs - now + 999) / 1000);
     snprintf(line, sizeof(line), "%s - %u s - again in %u s", prog.label[0] ? prog.label : "Gemini",
-             (unsigned)secs, (unsigned)((prog.waitUntilMs - now + 999) / 1000));
+             (unsigned)secs, again);
+    if (prog.shortName[0] && lcd.textWidth(line) > w) {
+      /* D-175: "DeepSeek V4 Flash - 12 s - again in 3 s" is wider than the box: the short name
+       * (test_chutes measures both). */
+      snprintf(line, sizeof(line), "%s - %u s - again in %u s", prog.shortName, (unsigned)secs, again);
+    }
   } else {
     snprintf(line, sizeof(line), "%s - %u s", prog.label[0] ? prog.label : "Gemini", (unsigned)secs);
   }
   lcd.setTextColor(WP_DISAB_1, WP_COLOR_0);
-  lcd.drawString(line, AI_MARGIN, y);
+  guiDrawEllipsized(lcd, line, w, AI_MARGIN, y);
   y += lh;
   lcd.setTextColor(GRAY_67, WP_COLOR_0);
   // 215 px of the 228 (Akrobat 16, measured): "(it carries on)" ran off the glass.
@@ -552,10 +689,13 @@ void AiApp::drawXfer() {
       guiDrawEllipsized(lcd, "phone's own hotspot is open.", w, AI_MARGIN, y); y += lh;
       lcd.setTextColor(WHITE, BLACK);
     }
-    lcd.drawString("Send gemini.txt (key=...).", AI_MARGIN, y); y += lh + 4;
-    aiKeyInfo(&key);
-    lcd.setTextColor(key.usable ? WP_ACCENT_G : GRAY_67, BLACK);
-    lcd.drawString(key.usable ? "Key found - Back to use it." : "Back stops the server.", AI_MARGIN, y);
+    lcd.drawString(CHUTES_XFER_LINE, AI_MARGIN, y); y += lh + 4;   // D-175: either key file (measured)
+    /* Green only once the MODEL IN USE has its key, and naming that file (review 2026-10-18: "Key
+     * found" for either file showed before anything was sent - a gemini.txt read as the chutes.txt
+     * the user was sending). */
+    const bool found = choiceUsable();
+    lcd.setTextColor(found ? WP_ACCENT_G : GRAY_67, BLACK);
+    lcd.drawString(found ? chutesXferFound(aiModelChoice()) : "Back stops the server.", AI_MARGIN, y);
   } else {
     const char* err = xferStartError();
     lcd.drawString("Server did not start.", AI_MARGIN, y); y += lh;
@@ -659,7 +799,7 @@ appEventResult AiApp::processEvent(EventType event) {
       }
       aiKeyReload();
       aiKeyInfo(&key);
-      enterState(key.usable ? AI_COMPOSE : AI_KEYINFO);
+      enterState(choiceUsable() ? AI_COMPOSE : AI_KEYINFO);
       return REDRAW_ALL;
     }
     return DO_NOTHING;
@@ -671,10 +811,28 @@ appEventResult AiApp::processEvent(EventType event) {
     }
     if (LOGIC_BUTTON_OK(event) && menu) {
       const MenuOption::keyType k = menu->currentKey();
-      if (k == ROW_ASK) {
+      if (k == ROW_ASK || k == ROW_ASKWEB) {
         aiKeyReload();
         aiKeyInfo(&key);
-        enterState(aiRequestActive() ? AI_WAITING : (key.usable ? AI_COMPOSE : AI_KEYINFO));
+        const AiState next = aiRequestActive() ? AI_WAITING : (choiceUsable() ? AI_COMPOSE : AI_KEYINFO);
+        askWeb = k == ROW_ASKWEB && next == AI_COMPOSE;   // D-176: this one question searches the web
+        enterState(next);
+      } else if (k == ROW_WEB) {
+        /* D-176: cycled and saved (NVS ai_web), the row kept; without a usable tavily.txt, Key info - how
+         * to add one - and nothing saved. The question in flight keeps what it was asked with. */
+        aiKeyReload();
+        if (!aiWebUsable()) {
+          enterState(AI_KEYINFO);
+        } else {
+          aiSetWebMode(webModeNext(aiWebMode()));
+          enterState(AI_MENU);
+          if (menu) {
+            menu->select(ROW_WEB);
+          }
+        }
+      } else if (k == ROW_MODEL) {
+        aiKeyReload();                    // the rows say which key files are there now
+        enterState(AI_MODELS);
       } else if (k == ROW_TOPIC) {
         aiChatNewTopic();
         enterState(AI_TRANSCRIPT);
@@ -743,11 +901,51 @@ appEventResult AiApp::processEvent(EventType event) {
     }
     return DO_NOTHING;
 
+  case AI_MODELS:
+    if (LOGIC_BUTTON_BACK(event)) {
+      enterState(AI_MENU);
+      if (menu) {
+        menu->select(ROW_MODEL);
+      }
+      return REDRAW_ALL;
+    }
+    if (LOGIC_BUTTON_OK(event) && menu) {
+      const MenuOption::keyType k = menu->currentKey();
+      if (k < ROW_PICK || k >= ROW_PICK + (MenuOption::keyType)CHUTES_CHOICES) {
+        return DO_NOTHING;
+      }
+      const int c = chutesChoiceAt((int)(k - ROW_PICK));
+      if (!aiChoiceUsable(c)) {
+        enterState(AI_KEYINFO);           // its key file is missing: how to add one - nothing saved
+        return REDRAW_ALL;
+      }
+      /* Saved (NVS ai_model) and back to the menu, whose row now names it; the question in flight
+       * (if any) keeps the model it was asked with. OK on the row IN USE saves nothing (review
+       * 2026-10-18): confirming the default pinned it, and a pinned Chutes preset outlives its key. */
+      if (c != aiModelChoice()) {
+        aiSetModelChoice(c);
+      }
+      enterState(AI_MENU);
+      if (menu) {
+        menu->select(ROW_MODEL);
+      }
+      return REDRAW_ALL;
+    }
+    if (menu) {
+      menu->processEvent(event);
+    }
+    return REDRAW_SCREEN;
+
   case AI_KEYINFO:
     if (LOGIC_BUTTON_BACK(event)) {
       aiKeyReload();
       aiKeyInfo(&key);
-      if (!key.usable && (!aiChat() || aiChat()->n == 0)) {
+      aiChutesKeyInfo(&ckey);
+      aiWebKeyInfo(&wkey);
+      /* Out only with NO key at all and no chat (review 2026-10-18: it asked choiceUsable(), so a
+       * Chutes preset whose chutes.txt had gone, with a good gemini.txt, closed the app here on every
+       * open - Menu > Model never reachable from the phone). */
+      if (!key.usable && !ckey.usable && (!aiChat() || aiChat()->n == 0)) {
         return EXIT_APP;                  // nothing to show without a key or a chat
       }
       enterState(AI_TRANSCRIPT);
@@ -755,6 +953,11 @@ appEventResult AiApp::processEvent(EventType event) {
     }
     if (LOGIC_BUTTON_OK(event) && menu) {
       const MenuOption::keyType k = menu->currentKey();
+      if (k == ROW_MODEL) {
+        aiKeyReload();                    // the rows say which key files are there now
+        enterState(AI_MODELS);
+        return REDRAW_ALL;
+      }
       if (k == ROW_UPLOAD) {
         enterState(AI_XFER);
         return REDRAW_ALL;

@@ -3208,7 +3208,8 @@ protected:
      * beside Maps: both answer "where, and when is it light" (0.9.80). */
     { 52, 1, "Almanac", "Select", "Back", GUI_APP_ALMANAC },
     /* 53: 0-52 are taken. COUNT UP - never fill 8 or 25. Ask Google's Gemini from the keypad, with
-     * the owner's own key from /API Keys/gemini.txt (0.9.81, app_ai.h). */
+     * the owner's own key from /API Keys/gemini.txt (0.9.81, app_ai.h) - or Chutes' models with
+     * /API Keys/chutes.txt (D-175), and a web search with /API Keys/tavily.txt (D-176). */
     { 53, 1, "AI", "Select", "Back", GUI_APP_AI },
     { 3, 1, "Tools", "Select", "Back", GUI_ACTION_SUBMENU },
     { 4, 1, "Games", "Select", "Back", GUI_ACTION_SUBMENU },

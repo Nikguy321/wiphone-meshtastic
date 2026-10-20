@@ -229,6 +229,39 @@ for src in tests/test_*.cpp; do
     # Then (shared with COVEY and the X4): every 5xx is busy (500/502/504 the 503 ladder), and the
     # fold table one character at a time (geminiFoldNext - the keywords' and relevance's fold).
     test_gemini)   deps=(WiPhone/gemini.cpp WiPhone/json_read.cpp) ;;
+    # Menu > AI's second provider, Chutes (chutes.cpp, D-175, 2026-10-18): the four presets and their
+    # fallback chains (the allowlist IS the table - mixed-case ids with '/', never the Gemini name
+    # rule), the choice and its default rule (NVS ai_model unset: v4flash with a Chutes key, Gemini
+    # without - the public phone unchanged), chutes.txt on Gemini's line rules (cpk_ keys only,
+    # model= a preset id, a key on the model= line dropped), the request body per preset (sampling,
+    # the thinking switch, a seed that changes, the same context turns as Gemini's, background in
+    # the question's turn only, never "tools"), Chutes' answers on fixtures in the shapes measured
+    # live (reasoning_content skipped, content null on "length", the <think> strip - at the START
+    # only, an answer that names the tag shown whole - FastAPI's {"detail"}, the anonymous path's
+    # HTML 429), the ladder (401/402 never retried, 404 remembered gone for every preset of that
+    # model, one busy retry inside a 30 s budget, ONE fallback, a timeout straight to it), the
+    # phone's own words for every failure (a 402's wallet in none; "check the key" only when EVERY
+    # attempt of the boot's first question was a 429), the root set by SHA-256 (seven), and the
+    # picker, notes, stages and the uploader's line measured in the firmware's fonts. The X4's
+    # review (2026-10-19), brought back: only stop/length/content_filter end an answer ("abort" and
+    # "error" after text are cut short, content_filter names the preset that declined, no text and
+    # such a finish is busy - never "an empty answer"), a model gone on the question's LAST attempt
+    # is remembered, and a topic never spans Gemini and Chutes (chutesTopicDue: this boot's last
+    # provider and the saved chat's labels - a restart and a cloned card included). Fake keys
+    # only, no network.
+    test_chutes)   deps=(WiPhone/chutes.cpp WiPhone/gemini.cpp WiPhone/json_read.cpp WiPhone/book_hash.cpp) ;;
+    # Menu > AI's web search (websearch.cpp, D-176, 2026-10-19): tavily.txt on Gemini's line rules
+    # (tvly- keys only; gemini.txt refusing one), the setting (absent = Auto) and its row, the Auto
+    # rule (all 38 words, years 2025-2099, the fewer-than-2-words skip, whole words through the
+    # shared fold), the topic/time mapping, the day's cap (a restart keeps it; forced and Always not
+    # capped), the /search body exactly (never advanced, auto_parameters or raw content), the
+    # STREAMING parser on replies in the docs' shapes fed in every split (a long one, empty results,
+    # missing fields, "[...]", \u escapes and surrogates, a huge content cut at a character, errors
+    # with no text kept), the block (header, framing line, 4 lines of 60/250 bytes, 1,500 at most,
+    # ASCII, cut at a word), the order in the user turn, the "Web:" line and its strip from the
+    # context, every failure's words, the pinned Amazon roots by SHA-256 and the rows measured in the
+    # firmware's fonts. Fake keys only, no network.
+    test_websearch) deps=(WiPhone/websearch.cpp WiPhone/gemini.cpp WiPhone/json_read.cpp WiPhone/book_hash.cpp) ;;
     # Menu > AI's Wikipedia lookup (wiki_lookup.cpp, 2026-10-11): the question's keywords (the
     # stopwords, digits kept, contractions to their stems, a follow-up borrowing the topic's newest
     # question that named something), relevance (a keyword in a title or description, whole words)
@@ -457,7 +490,31 @@ fi
 # handshake ("reboot first"), the budget's clamp right before the request and the client's reading
 # guard after the first byte. And the key's home: the uploader (app_gbc_xfer.cpp) never stats,
 # reads, resumes or lists a file in "/API Keys" (or a gemini.txt) - it writes them, fresh.
-echo "checking the AI glue (150 s wait, a call ends it, the trusted date, the Wikipedia lookup, the timeout retry, the write-only key folder)"
+# D-175 (Chutes): the Bearer header built from the Chutes key, sent ONLY to llm.chutes.ai as a header
+# and wiped after the request, nowhere else (not Gemini's request, not the lookup), no redirect ever
+# followed; the root set pinned (GoDaddy G2 + ISRG X1/X2/YR/YE + GTS R1/R4); the Chutes loop's date,
+# body, seed, Cancel/call, ladder and scrub; no key in a log, screen or console line (`ai model`
+# echoes nothing typed); the choice copied at ask time with only its provider's key; the default
+# rule. The D-175 review (2026-10-18): every read of a key, the header, the key file's buffer, the
+# raw body and the raw text allowlisted; the Chutes branch returns before Gemini's loop; the latch
+# and aiChoiceUsable; the wipes the compiler keeps (no memset before free); Key info never a trap;
+# tools/card_clone.sh leaves out every key file files_paths.h knows. The X4's review (2026-10-19):
+# aiAsk's topic is chutesTopicDue with this boot's last provider (a topic never spans Gemini and
+# Chutes), `ai` and Menu > AI ask the same rule, and the answer's words get the preset that answered.
+# The WiPhone's review (2026-10-19): the Chutes answer is built once, between the parse and the ladder
+# (chutesAnswerShown), so the ladder judges "any text" by what the screen shows.
+# D-176 (the web search): the Tavily Bearer built from the Tavily key, sent ONLY to api.tavily.com as a
+# header and wiped right after its ONE request (never retried), no other key in the search and the
+# Tavily key in no other request; the Amazon Root CA 1 + Starfield G2 pin; the handshake's cap, Tavily's
+# 3 s and the whole budget; the reply parsed by the tap with nothing raw kept; the decision (a GOOD
+# tavily.txt, the force, today's NVS count read first) and the key copied only when it searches; the
+# search after the lookup and before either provider; every SENT search counted (one that never reached
+# Tavily is not); the NVS names; the block, the body and the background in no log, text or chat, the
+# sources line written only by its builders; Menu > AI's rows (never under Off, never without a key; OK
+# on "Ask with web search" sets the force) and `ai web` echoing nothing typed. Its review (2026-10-19):
+# the stage and every failure's note reach the screen, and `ai web test` leaves nothing behind (no
+# latched Clear chat / New topic, no earlier question's block to print).
+echo "checking the AI glue (150 s wait, a call ends it, the trusted date, the Wikipedia lookup, the timeout retry, the write-only key folder, Chutes' Bearer/roots/choice, one provider a topic, the web search's Bearer/roots/budget/cap/block)"
 if ! python3 tests/check_ai_glue.py; then
   fail=1
 fi

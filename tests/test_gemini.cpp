@@ -390,6 +390,58 @@ static void testConfig() {
   ok(parse("model=gemini-flash-latest\nkey=AAAAAAAAAAAAAAAAAAAAAAAA\nnonsense line here\nfoo=bar\n", &c) ==
      GEM_CFG_OK, "unknown lines are ignored");
 
+  group("a CHUTES key in gemini.txt is refused - it would go to Google (review 2026-10-18)");
+  static const char CPK[] = "cpk_test.FAKE.FAKE-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd";
+  std::string ck = std::string("key=") + CPK + "\n";
+  const int crc = parse(ck.c_str(), &c);
+  char ln[256];
+  geminiConfigLine(&c, crc, ln, sizeof(ln));
+  printf("      \"%s\"\n", ln);
+  bool clear = true;
+  for (size_t i = 0; i < sizeof(c.key); i++) {
+    if (c.key[i]) clear = false;
+  }
+  ok(crc == GEM_CFG_BAD_KEY && clear && c.keyLen == 0 && c.problem && strstr(c.problem, "chutes.txt") &&
+     strstr(ln, "cpk_test") == NULL && strstr(ln, "FAKE.FAKE") == NULL && !(c.warn & GEM_WARN_TDECK),
+     "key=cpk_...: refused, the key wiped (all of key[]), and why - put it in chutes.txt");
+  std::string ckBare = std::string("# pasted\n") + CPK + "\n";
+  ok(parse(ckBare.c_str(), &c) == GEM_CFG_BAD_KEY && c.key[0] == '\0', "...a lone bare cpk_ line too");
+  ok(geminiReadKeyFile(ck.c_str(), ck.size(), &c) == GEM_CFG_OK && !strcmp(c.key, CPK),
+     "the provider-blind reader takes it (chutes.txt's reading - chutesParseConfig)");
+  ok(parse("key=AIzaSyCpk_is-only-a-prefix-0123456789ab\n", &c) == GEM_CFG_OK && parse("key=CPK_upper0123456789abcdef\n", &c) == GEM_CFG_OK,
+     "only a key that STARTS cpk_ (Chutes' own, lowercase) - never a Google key that holds the letters");
+
+  group("a TAVILY key in gemini.txt is refused too - it would go to Google (D-176)");
+  static const char TVLY[] = "tvly-test-FAKE0123456789abcdefFAKE0123";
+  std::string tk = std::string("key=") + TVLY + "\n";
+  const int trc = parse(tk.c_str(), &c);
+  geminiConfigLine(&c, trc, ln, sizeof(ln));
+  printf("      \"%s\"\n", ln);
+  bool tclear = true;
+  for (size_t i = 0; i < sizeof(c.key); i++) {
+    if (c.key[i]) tclear = false;
+  }
+  ok(trc == GEM_CFG_BAD_KEY && tclear && c.keyLen == 0 && c.problem && strstr(c.problem, "tavily.txt") &&
+     strstr(ln, "tvly-test") == NULL && strstr(ln, "FAKE0123") == NULL,
+     "key=tvly-...: refused, the key wiped (all of key[]), and why - put it in tavily.txt");
+  std::string tkBare = std::string("# pasted\n") + TVLY + "\n";
+  ok(parse(tkBare.c_str(), &c) == GEM_CFG_BAD_KEY && c.key[0] == '\0', "...a lone bare tvly- line too");
+  ok(geminiReadKeyFile(tk.c_str(), tk.size(), &c) == GEM_CFG_OK && !strcmp(c.key, TVLY),
+     "the provider-blind reader takes it (tavily.txt's reading - webParseConfig)");
+  ok(parse("key=AIzaSyCtvly-is-only-a-prefix-0123456789\n", &c) == GEM_CFG_OK,
+     "only a key that STARTS tvly- - never a Google key that holds the letters");
+
+  group("geminiWipe (the wipe the compiler keeps)");
+  unsigned char wb[33];
+  memset(wb, 0xA5, sizeof(wb));
+  geminiWipe(wb + 1, 31);
+  bool wz = wb[0] == 0xA5 && wb[32] == 0xA5;
+  for (int i = 1; i < 32; i++) {
+    if (wb[i]) wz = false;
+  }
+  geminiWipe(NULL, 8);
+  ok(wz, "zeroes exactly n bytes, NULL is nothing");
+
   group("lookup=off: the Wikipedia lookup's switch (2026-10-11)");
   ok(parse(canon.c_str(), &c) == GEM_CFG_OK && c.lookup && !(c.warn & GEM_WARN_LOOKUP),
      "no lookup= line: ON (the default)");
@@ -633,6 +685,25 @@ static void testRequest() {
      "a \"Wikipedia:\" that is not the LAST line is the answer's own: kept");
   ok(b.find("Spain.\\nWikipedia: no blank line before it") != std::string::npos,
      "...and one with no blank line before it");
+
+  group("(D-176) ...nor the web search's \"Web:\" line, alone or after Wikipedia's");
+  GeminiTurnPair wd[4] = {
+    { "best gun?", "The Scar.\n\nWikipedia: Marathon (2026 video game)\nWeb: pcgamer.com; reddit.com" },
+    { "and now?", "Still the Scar.\n\nWeb: search unavailable" },
+    { "the list?", "Web: the model's own words\n\nand then more" },
+    { "who?", "Spain.\n\nWikipedia: A\nWeb: b.com\nand a line after" },
+  };
+  b = build(wd, 4, "and the price?", 1024);
+  ok(b.find("{\"role\":\"model\",\"parts\":[{\"text\":\"The Scar.\"}]}") != std::string::npos &&
+     b.find("pcgamer") == std::string::npos, "Wikipedia's line and the web's after it: both cut");
+  ok(b.find("{\"role\":\"model\",\"parts\":[{\"text\":\"Still the Scar.\"}]}") != std::string::npos,
+     "the web's note alone after the blank line: cut");
+  ok(b.find("Web: the model's own words\\n\\nand then more") != std::string::npos &&
+     b.find("Spain.\\n\\nWikipedia: A\\nWeb: b.com\\nand a line after") != std::string::npos,
+     "a \"Web:\" that is not the trailing sources block: the answer's own, kept");
+  ok(geminiContextLen("x\n\nWikipedia: A") == 1 && geminiContextLen("x\n\nWeb: a.com") == 1 &&
+     geminiContextLen("x\n\nWikipedia: A\nWeb: a.com") == 1 && geminiContextLen("x\n\nWeb: a\nWeb: b") == strlen("x\n\nWeb: a\nWeb: b"),
+     "geminiContextLen: one Wikipedia line, one Web line, or the two in that order - nothing else");
 }
 
 // ── the system instruction, built per request ─────────────────────────────────────────────

@@ -41,6 +41,14 @@ static void gCopyN(char* dst, size_t cap, const char* src, size_t n) {
   dst[n] = '\0';
 }
 
+/* Volatile stores: never a dead store the optimiser may drop (gemini.h). */
+void geminiWipe(void* p, size_t n) {
+  volatile unsigned char* v = (volatile unsigned char*)p;
+  while (v && n--) {
+    *v++ = 0;
+  }
+}
+
 static bool gEqNoCase(const char* a, size_t alen, const char* b) {
   const size_t bl = strlen(b);
   return alen == bl && strncasecmp(a, b, bl) == 0;
@@ -182,6 +190,29 @@ static bool gSameText(const char* name, const char* s, const char* e) {
 }
 
 int geminiParseConfig(const char* text, size_t len, GeminiConfig* out) {
+  const int rc = geminiReadKeyFile(text, len, out);
+  /* A Chutes key in gemini.txt (or the T-Deck's /gemini.txt) - easy to do, Key info says to make
+   * chutes.txt "the same ways": refused and wiped, never sent to Google (review 2026-10-18). Its
+   * shape warnings were about that key, so they go with it. */
+  if (rc == GEM_CFG_OK && !strncmp(out->key, GEM_CHUTES_KEY_PREFIX, sizeof(GEM_CHUTES_KEY_PREFIX) - 1)) {
+    geminiWipe(out->key, sizeof(out->key));
+    out->keyLen = 0;
+    out->warn &= ~(GEM_WARN_SHAPE | GEM_WARN_TDECK);
+    out->problem = "this is a Chutes key - put it in chutes.txt";
+    return GEM_CFG_BAD_KEY;
+  }
+  /* (D-176) A Tavily key, the same: refused and wiped, never sent to Google as x-goog-api-key. */
+  if (rc == GEM_CFG_OK && !strncmp(out->key, GEM_TAVILY_KEY_PREFIX, sizeof(GEM_TAVILY_KEY_PREFIX) - 1)) {
+    geminiWipe(out->key, sizeof(out->key));
+    out->keyLen = 0;
+    out->warn &= ~(GEM_WARN_SHAPE | GEM_WARN_TDECK);
+    out->problem = "this is a Tavily key - put it in tavily.txt";
+    return GEM_CFG_BAD_KEY;
+  }
+  return rc;
+}
+
+int geminiReadKeyFile(const char* text, size_t len, GeminiConfig* out) {
   memset(out, 0, sizeof(*out));
   gCopy(out->model, sizeof(out->model), GEM_DEFAULT_MODEL);
   gCopy(out->fallback, sizeof(out->fallback), GEM_LITE_MODEL);
@@ -780,31 +811,64 @@ static void wTurn(GemW* w, const char* role, const char* text) {
   wTurnN(w, role, text, text ? strlen(text) : 0);
 }
 
+/* The last occurrence of `sep` in `a`, or NULL. */
+static const char* gLastOf(const char* a, const char* sep) {
+  const char* last = NULL;
+  for (const char* p = strstr(a, sep); p; p = strstr(p + 1, sep)) {
+    last = p;
+  }
+  return last;
+}
+
 /* A stored answer as it goes back as context: without its own "Wikipedia: ..." line
  * (geminiAnswerText's last line, GEM_SRC_SEP). Sent back, it would teach the model to end answers
  * with one - naming pages it was never given. Only the LAST line, and only after a blank one: a
- * "Wikipedia:" anywhere else is the answer's own words. */
+ * "Wikipedia:" anywhere else is the answer's own words. (D-176) The web search's "Web: ..." line is
+ * cut the same way: alone after the blank line (GEM_WEB_SEP), or as the one line right after the
+ * Wikipedia line ("\n\nWikipedia: A\nWeb: b.com") - the trailing sources block, and nothing else. */
 static size_t gContextLen(const char* a) {
   if (!a) {
     return 0;
   }
-  const char* last = NULL;
-  for (const char* p = strstr(a, GEM_SRC_SEP); p; p = strstr(p + 1, GEM_SRC_SEP)) {
-    last = p;
+  const char* wiki = gLastOf(a, GEM_SRC_SEP);
+  if (wiki) {
+    const char* rest = wiki + sizeof(GEM_SRC_SEP) - 1;
+    const char* nl = strchr(rest, '\n');
+    if (!nl) {
+      return (size_t)(wiki - a);                 // "...\n\nWikipedia: A; B" - the last line
+    }
+    if (!strncmp(nl + 1, GEM_WEB_PREFIX, sizeof(GEM_WEB_PREFIX) - 1) &&
+        !strchr(nl + 1 + sizeof(GEM_WEB_PREFIX) - 1, '\n')) {
+      return (size_t)(wiki - a);                 // "...\n\nWikipedia: A\nWeb: b.com" - the two
+    }
   }
-  if (last && !strchr(last + sizeof(GEM_SRC_SEP) - 1, '\n')) {
-    return (size_t)(last - a);
+  const char* web = gLastOf(a, GEM_WEB_SEP);
+  if (web && !strchr(web + sizeof(GEM_WEB_SEP) - 1, '\n')) {
+    return (size_t)(web - a);                    // "...\n\nWeb: b.com" - the web's alone
   }
   return strlen(a);
 }
 
-size_t geminiBuildRequest(const GeminiTurnPair* ctx, int nCtx, const char* question,
-                          const char* background, const char* sysInstr, int thinkingBudget,
-                          char* out, size_t cap) {
+size_t geminiContextLen(const char* a) {
+  return gContextLen(a);
+}
+
+/* The background's bytes the context budget counts: up to the web search's block (D-176) - which
+ * webAppendBlock puts alone or after Wikipedia's and "\n\n" - and none of it. The web's block is EXTRA
+ * (the spec): only Wikipedia's counts, as before D-176. */
+static size_t gBackgroundCounted(const char* bg) {
+  if (!strncmp(bg, GEM_WEB_BLOCK_HEAD, sizeof(GEM_WEB_BLOCK_HEAD) - 1)) {
+    return 0;                                      // the web's block alone
+  }
+  const char* web = strstr(bg, "\n\n" GEM_WEB_BLOCK_HEAD);
+  return web ? (size_t)(web - bg) : strlen(bg);
+}
+
+int geminiContextFirst(const GeminiTurnPair* ctx, int nCtx, const char* question, const char* background) {
   const bool bg = background && background[0];
   // The newest exchanges that fit the cap with the question (and its background); the oldest go first.
   size_t total = (question ? strlen(question) : 0) +
-                 (bg ? strlen(background) + sizeof(GEM_BG_QUESTION) - 1 : 0);
+                 (bg ? gBackgroundCounted(background) + sizeof(GEM_BG_QUESTION) - 1 : 0);
   int first = nCtx;
   for (int i = nCtx - 1; i >= 0; i--) {
     const size_t add = (ctx[i].q ? strlen(ctx[i].q) : 0) + gContextLen(ctx[i].a);
@@ -814,6 +878,14 @@ size_t geminiBuildRequest(const GeminiTurnPair* ctx, int nCtx, const char* quest
     total += add;
     first = i;
   }
+  return first;
+}
+
+size_t geminiBuildRequest(const GeminiTurnPair* ctx, int nCtx, const char* question,
+                          const char* background, const char* sysInstr, int thinkingBudget,
+                          char* out, size_t cap) {
+  const bool bg = background && background[0];
+  const int first = geminiContextFirst(ctx, nCtx, question, background);   // (D-175: shared with chutes.cpp)
   GemW w = { out, cap, 0 };
   wStr(&w, "{\"system_instruction\":{\"parts\":[{\"text\":\"");
   wEsc(&w, sysInstr ? sysInstr : "");
@@ -1827,7 +1899,7 @@ static void shortMessage(const GeminiReply* r, const char* key, char* out, size_
   scrubKeyTail(raw, key);
   bool t = false;
   geminiCleanText(raw, out, cap, &t);
-  memset(raw, 0, sizeof(raw));
+  geminiWipe(raw, sizeof(raw));                  // a memset of a local about to die is dropped
   for (char* p = out; *p; p++) {
     if (*p == '\n') *p = ' ';
   }

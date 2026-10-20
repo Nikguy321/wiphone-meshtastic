@@ -69,6 +69,14 @@ int main() {
      "any file type in it, and a folder of that name anywhere");
   ok(filePathIsKeyFile("/gemini.txt") && filePathIsKeyFile("/roms/GEMINI.txt"),
      "gemini.txt anywhere (the T-Deck keeps it at the root)");
+  ok(filePathIsKeyFile("/API Keys/chutes.txt") && filePathIsKeyFile("/chutes.txt") &&
+     filePathIsKeyFile("/books/Chutes.TXT"), "chutes.txt (D-175) in the folder, and a stray copy anywhere");
+  ok(!filePathIsKeyFile("/books/chutes.txt.epub") && !filePathIsKeyFile("/books/parachutes.txt") &&
+     !filePathIsKeyFile("/chutes.txt/notes.md"), "...only that exact name (and a folder of it is no file)");
+  ok(filePathIsKeyFile("/API Keys/tavily.txt") && filePathIsKeyFile("/tavily.txt") &&
+     filePathIsKeyFile("/books/Tavily.TXT"), "tavily.txt (D-176) in the folder, and a stray copy anywhere");
+  ok(!filePathIsKeyFile("/books/tavily.txt.epub") && !filePathIsKeyFile("/books/mytavily.txt") &&
+     !filePathIsKeyFile("/tavily.txt/notes.md"), "...only that exact name (and a folder of it is no file)");
   ok(!filePathIsKeyFile("/API Keysx/a.txt") && !filePathIsKeyFile("/my API Keys/a.txt") &&
      !filePathIsKeyFile("/books/gemini.txt.epub") && !filePathIsKeyFile("/books/notes.txt"),
      "only the exact names");

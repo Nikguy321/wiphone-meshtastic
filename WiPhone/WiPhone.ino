@@ -1610,7 +1610,7 @@ void setup() {
 
   if (SD.begin(SD_CARD_CS_PIN, SPI, SD_CARD_FREQUENCY)) {
     log_d("Card mounted");
-    /* The home of the user's API keys (gemini.txt for the AI terminal). Made at boot so the
+    /* The home of the user's API keys (gemini.txt, and - D-175/D-176 - chutes.txt and tavily.txt for the AI app). Made at boot so the
      * Files app can upload into it before any app needs it: Files > API Keys > [ Upload into
      * this folder ]. Quiet when it already exists. A key is only ever read from the card, never
      * compiled in - this repo is public. */
