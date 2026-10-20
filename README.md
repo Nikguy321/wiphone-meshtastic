@@ -624,8 +624,12 @@ lines, a BOM, Windows line endings, quotes and spaces around `=` are all fine.
 costs a fraction of a cent. Nothing about it is in the firmware but four model names and the root
 certificates: you bring your own key, and a phone without one never talks to Chutes.
 
-1. On a computer, make an account at **chutes.ai**, add credit or a plan, and create an **API key**.
-   It starts with `cpk_`. Keep it to yourself, like a password; if it leaks, delete it there and make
+1. On a computer, make an account at **chutes.ai**. There is **no free tier** (checked October 2026):
+   either top up a balance and pay per token (pay as you go is the default; a short question costs a
+   fraction of a cent), or take a plan with a daily number of requests - **Plus, $10 a month for 2,000
+   requests a day**, or **Pro, $20 a month for 5,000** (chutes.ai/pricing). One question from the phone
+   is one request (two if the first model was busy and another answered). Then create an **API key**:
+   it starts with `cpk_`. Keep it to yourself, like a password; if it leaks, delete it there and make
    a new one. One key per device is a good idea: a lost phone's key can then be revoked alone.
 2. Make a plain text file named **`chutes.txt`** with one line:
 
@@ -694,8 +698,10 @@ the Chutes models alike. Nothing about it is in the firmware but the address and
 certificates: you bring your own key, and a phone without one never talks to Tavily.
 
 1. On a computer, make an account at **tavily.com** and copy your **API key**. It starts with
-   `tvly-`. The free plan had **1,500 searches a month** in October 2026 and needs no card. Keep the
-   key to yourself (Tavily's terms do not allow sharing one); one key per device is a good idea.
+   `tvly-`. The free **Researcher** plan gives **1,000 credits a month** and needs no card (checked
+   October 2026 at tavily.com/pricing; a basic search costs 1 credit, and the phone only ever makes
+   basic searches, so that is 1,000 searches). Keep the key to yourself (Tavily's terms do not allow
+   sharing one); one key per device is a good idea.
 2. Make a plain text file named **`tavily.txt`** with one line:
 
    ```
