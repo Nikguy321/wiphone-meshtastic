@@ -262,6 +262,11 @@ for src in tests/test_*.cpp; do
     # context, every failure's words, the pinned Amazon roots by SHA-256 and the rows measured in the
     # firmware's fonts. Fake keys only, no network.
     test_websearch) deps=(WiPhone/websearch.cpp WiPhone/gemini.cpp WiPhone/json_read.cpp WiPhone/book_hash.cpp) ;;
+    # D-177, the map's place search: the pure half (placesearch.cpp) with the fold (gemini.cpp), the
+    # JSON reader, the lists' distance/compass and units helpers, the world-pixel rule, and SHA-256
+    # for the pinned roots.
+    test_placesearch) deps=(WiPhone/placesearch.cpp WiPhone/gemini.cpp WiPhone/json_read.cpp WiPhone/mesh_pos.cpp
+                            WiPhone/units.cpp WiPhone/map_tiles.cpp WiPhone/book_hash.cpp) ;;
     # Menu > AI's Wikipedia lookup (wiki_lookup.cpp, 2026-10-11): the question's keywords (the
     # stopwords, digits kept, contractions to their stems, a follow-up borrowing the topic's newest
     # question that named something), relevance (a keyword in a title or description, whole words)
@@ -516,6 +521,22 @@ fi
 # latched Clear chat / New topic, no earlier question's block to print).
 echo "checking the AI glue (150 s wait, a call ends it, the trusted date, the Wikipedia lookup, the timeout retry, the write-only key folder, Chutes' Bearer/roots/choice, one provider a topic, the web search's Bearer/roots/budget/cap/block)"
 if ! python3 tests/check_ai_glue.py; then
+  fail=1
+fi
+
+# ── SOURCE GUARD: the map's place search keeps its rules (D-177, 2026-10-20) ─────────────
+# See tests/check_place_glue.py. test_placesearch proves the pure half (placesearch.cpp); this pins
+# the glue: the ISRG X1 + Root YR pin, the User-Agent naming the firmware and its repo, the 6 s
+# handshake and 10 s whole budgets, limit=8 and lang=en, the 3-decimal bias by integer arithmetic,
+# https-only templates checked before NVS, ONE netHttps with no loop and no redirect (never
+# retried), Cancel passed and honoured (a cancelled search is no error), the worker's predicate and
+# the loop tick, every gate (off, no Wi-Fi, another job - never queued behind one, the weather's
+# gates, the heap bar), no URL / query / coordinate in a log line and the host only on the console,
+# the NVS names (isKey before getString), the console commands and their drain, PSRAM and purity.
+# ⚠ Its self-test mutates the real sources IN PLACE and restores them from an md5-verified backup;
+# it compiles test_placesearch against seven of the mutants (about a minute). Run it alone.
+echo "checking the place search glue (ISRG roots, the User-Agent, 6 s / 10 s, limit 8, lang en, 3-decimal bias, https only, never retried, cancel honoured, the gates, no URL in a log; in-place mutations with an md5-verified restore)"
+if ! python3 tests/check_place_glue.py; then
   fail=1
 fi
 

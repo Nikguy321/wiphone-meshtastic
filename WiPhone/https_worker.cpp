@@ -9,6 +9,7 @@
 #include "ai_net.h"             // aiRequestActive (netRequestActive)
 #include "weather_net.h"        // wxRequestActive (netRequestActive)
 #include "geoloc_net.h"         // geoRequestActive (netRequestActive)
+#include "placesearch_net.h"    // placeRequestActive (netRequestActive), D-177
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -140,7 +141,11 @@ bool netWorkerQueued(int kind) {
 
 bool netRequestActive() {
   /* Every kind, or one of them runs its handshake at the 80 MHz idle clock beside a 1-tick loop
-   * (tests/check_geoloc_review.py pins the Wi-Fi location term). */
+   * (tests/check_geoloc_review.py pins the Wi-Fi location term, tests/check_place_glue.py the
+   * place search's). */
+  if (placeRequestActive()) {
+    return true;                                   // the map's place search (D-177)
+  }
   return aiRequestActive() || wxRequestActive() || geoRequestActive();
 }
 

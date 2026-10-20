@@ -12,6 +12,8 @@
 #include "elev_sd.h"        // the altitude layer on the card (0.9.80)
 #include "units.h"          // metric or US: the scale bar, every distance, every height
 #include "prefs_almanac.h"  // gUnits, unitsSetPref
+#include "placesearch_net.h" // D-177: "Search a place..." - one Photon search on the shared HTTPS worker
+#include "gemini.h"          // geminiFoldNext: a place's name folded to ASCII (the rows' fold, placesearch.cpp)
 #include <stdarg.h>
 #include <string.h>
 #include <strings.h>        // strcasecmp: the reserved folder name, whatever its case
@@ -105,6 +107,8 @@ enum {
   ROW_M_SNAP       = ROW_ACT + 13,
   ROW_M_ALT        = ROW_ACT + 14,     // Altitude: ON/off (0.9.80)
   ROW_M_UNITS      = ROW_ACT + 15,     // Units: metric / US
+  ROW_M_SEARCH     = ROW_ACT + 16,     // Search a place... (D-177)
+  ROW_M_SEARCH_ON  = ROW_ACT + 17,     // Place search: On/Off (D-177, NVS maps/search)
   ROW_P_RENAME     = ROW_ACT + 20,
   ROW_P_MOVE       = ROW_ACT + 21,
   ROW_P_SHARE      = ROW_ACT + 22,
@@ -123,6 +127,7 @@ enum {
   ROW_D_BACK       = ROW_ACT + 45,
   ROW_D_RESUME     = ROW_ACT + 46,     // a waiting download: start it now, on this network
   ROW_D_ELEV       = ROW_ACT + 47,     // Elevation too: ON/off (0.9.80)
+  ROW_S_AGAIN      = ROW_ACT + 50,     // the search list's "Search again" (D-177)
   ROW_C_CANCEL     = ROW_ACT + 59,
   ROW_C_BASE       = ROW_ACT + 60,     // channel i is ROW_C_BASE + i
 };
@@ -152,6 +157,48 @@ static const float MAPS_DL_SEC_PER_TILE[] = { 1.2f, 1.2f, 4.0f, 1.2f };
 #define MAPS_DL_ELEV_ROW          192     // the form's elevation account (PSRAM, not the loop's stack)
 #define MAPS_DL_HOLD_MS    (2u * 60u * 1000u)   // the running form holds the screen this long after a key
 #define MAPS_DL_STOP_ARM_MS 3000u              // Stop is a second press inside this
+/* The search field (D-177) keeps two rows of AKROBAT_BOLD_16 under it for a refusal or a failure
+ * ("Place search: the service refused (HTTP 429)" is two rows of this font) and, otherwise, the
+ * hint - the AI compose's strip (app_ai.cpp AI_COMPOSE_H). */
+#define MAPS_SEARCH_STRIP_H 36
+
+/* `in` folded to ASCII into out[cap] (cut at its end): geminiFoldNext's table, the one the search
+ * rows and the Wikipedia text fold through, with runs of whitespace and control characters one
+ * space and neither end blank (placesearch.cpp's foldInto, which is that file's own). A place's
+ * name is UTF-8 as Photon sent it; the strip, the note, the text field and the pins file take
+ * printable ASCII. Returns the length. */
+static size_t foldAscii(const char* in, char* out, size_t cap) {
+  if (!out || cap == 0) {
+    return 0;
+  }
+  const char* s = in ? in : "";
+  char one[2];
+  const char* rep;
+  size_t n = 0;
+  bool space = false;
+  while ((rep = geminiFoldNext(&s, one)) != NULL) {
+    for (; *rep; rep++) {
+      const unsigned char c = (unsigned char)*rep;
+      if (c <= 0x20 || c == 0x7F) {
+        space = n > 0;
+        continue;
+      }
+      if (space) {
+        if (n + 1 >= cap) {
+          break;
+        }
+        out[n++] = ' ';
+        space = false;
+      }
+      if (n + 1 >= cap) {
+        break;
+      }
+      out[n++] = (char)c;
+    }
+  }
+  out[n] = '\0';
+  return n;
+}
 
 static MapsApp* s_instance = NULL;
 volatile bool gMapsActive = false;
@@ -249,6 +296,11 @@ MapsApp::MapsApp(LCD& disp, ControlState& state, HeaderWidget* hdr, FooterWidget
   dlStopArmMs = 0;
   gotoLat[0] = gotoLon[0] = '\0';
   gotoField = 0;
+  searchGen = placeSearchGen();
+  searchMine = 0;
+  searchRunning = false;
+  searchWhy[0] = '\0';
+  searchFrom[0] = '\0';
   chanPending = 0;
   chanForPin = -1;
   followMe = false;
@@ -346,6 +398,13 @@ MapsApp::~MapsApp() {
     savePins();
   }
   cancelLoad();
+  /* D-177: a search this screen started and nobody will read is ended (the console's is not
+   * touched); the place the last search jumped to is forgotten with the app (the pin-name
+   * prefill, dropPin). The last query stays for the session: placesearch_net's, by design. */
+  if (searchMine && searchMine == placeSearchGen() && placeSearchState() == PLACE_RUNNING) {
+    placeSearchCancel();
+  }
+  placeForgetLastPlace();
   freeWidgets();
   freeSlots();
   free(pins);
@@ -2394,6 +2453,20 @@ bool MapsApp::dropPin() {
   p->lonI = mapDegToI7(lon);
   p->sharedId = 0;
   mapPinAutoName(pins, pinCount, p->name, sizeof(p->name));
+  /* D-177: the crosshair within PLACE_NEAR_PX of the place the last search jumped to - the pin
+   * takes the PLACE'S name (folded: the pins file is ASCII), so "search -> jump -> OK -> Save"
+   * makes a named pin. The rename field opens on it, and END keeps it too. */
+  {
+    char pname[PLACE_NAME_MAX];
+    double pla = 0, plo = 0;
+    if (placeLastPlace(pname, sizeof(pname), &pla, &plo) &&
+        placeNearPx(zoom, pla, plo, lat, lon, PLACE_NEAR_PX)) {
+      char folded[MAP_PIN_NAME_LEN];
+      if (foldAscii(pname, folded, sizeof(folded)) > 0) {
+        mapPinSanitizeName(folded, p->name, sizeof(p->name));
+      }
+    }
+  }
   pinSel = pinCount;
   pinCount++;
   pinsDirty = true;
@@ -2738,6 +2811,15 @@ void MapsApp::enterState(MapsState_t st) {
     buildMenu();
     break;
   case MAPS_LIST:
+    if (listKind == LIST_SEARCH) {
+      /* D-177: "Found 3 for 'teneriffe falls'" / "Nothing found for '...'" - the query folded,
+       * cut to the title with its quote closed (placeHeader). */
+      placeHeader(placeLastQuery(), placeResultCount(), headerTitle, sizeof(headerTitle));
+      header->setTitle(headerTitle);
+      footer->setButtons("Go to", "Back");
+      buildSearchList();
+      break;
+    }
     snprintf(headerTitle, sizeof(headerTitle), "%s",
              listKind == LIST_PINS ? "Pins" : (listKind == LIST_PLACES ? "Places" : "Nodes"));
     header->setTitle(headerTitle);
@@ -2814,6 +2896,12 @@ void MapsApp::enterState(MapsState_t st) {
     chanPending = 0;
     buildChannels();
     break;
+  case MAPS_SEARCH:
+    snprintf(headerTitle, sizeof(headerTitle), "%s", PLACE_HEADER);
+    header->setTitle(headerTitle);
+    buildSearch();
+    searchSyncFooter();                      // "Search"/"Clear" - or "Searching..."/"Cancel" if one runs
+    break;
   }
 }
 
@@ -2877,6 +2965,12 @@ void MapsApp::buildMenu() {
   menu->addOption(row, ROW_M_PLACES);
   snprintf(row, sizeof(row), "Nodes with a position...");
   menu->addOption(row, ROW_M_NODES);
+  /* D-177: a place by name, over Wi-Fi (placesearch.h: Photon, OpenStreetMap's data). The row
+   * says what it needs: without Wi-Fi it is the download form's note, with the setting off it
+   * opens the setting (the row below Units). */
+  menu->addOption(!placeSearchEnabled() ? PLACE_ROW_SEARCH_OFF
+                  : (WiFi.status() == WL_CONNECTED ? PLACE_ROW_SEARCH : PLACE_ROW_SEARCH_NOWIFI),
+                  ROW_M_SEARCH);
   menu->addOption("Go to coordinates...", ROW_M_GOTO);
   menu->addOption("Centre on me", ROW_M_ME);
   menu->addOption(followMe ? "Follow me: ON (scroll stops it)" : "Follow me: off", ROW_M_FOLLOW);
@@ -2884,6 +2978,7 @@ void MapsApp::buildMenu() {
   menu->addOption(snapPins ? "Snap to markers: ON" : "Snap to markers: off", ROW_M_SNAP);
   menu->addOption(altOn ? "Altitude: ON" : "Altitude: off", ROW_M_ALT);
   menu->addOption(unitsSettingRow(gUnits), ROW_M_UNITS);   // the Almanac's row, word for word
+  menu->addOption(placeSettingRow(placeSearchEnabled()), ROW_M_SEARCH_ON);   // D-177: NVS maps/search
   menu->addOption(tileFetchActive() ? "Downloading maps..." : "Download maps...", ROW_M_DOWNLOAD);
   if (areaCount > 1) {
     snprintf(row, sizeof(row), "Map area: %s", areaSel >= 0 ? areas[areaSel].name : "-");
@@ -3526,6 +3621,216 @@ void MapsApp::buildRename() {
   controlState.setInputState(InputType::AlphaNum);
 }
 
+// ---------------------------------------------------------------- search a place (D-177)
+
+/* The field: buildRename's widget with the strip's room kept under it (drawSearch), opening on the
+ * session's last query so a second search starts from it. Names are typed on the keypad, so the
+ * field opts into predictive text (app_ai.cpp's compose): '#' cycles T9 / Abc / ABC / 123, and the
+ * footer shows the mode. */
+void MapsApp::buildSearch() {
+  freeMenu();
+  delete textArea;
+  const int16_t padding = 4;
+  textArea = new MultilineTextWidget(0, header->height(), lcd.width(),
+                                     lcd.height() - header->height() - footer->height() - MAPS_SEARCH_STRIP_H,
+                                     "Place name", controlState, PLACE_QUERY_CHARS,
+                                     fonts[OPENSANS_COND_BOLD_20], InputType::AlphaNum,
+                                     padding, padding);
+  textArea->setColors(WP_COLOR_1, WP_COLOR_0);
+  const char* last = placeLastQuery();
+  if (last && last[0]) {
+    textArea->setText(last);
+  }
+  textArea->cursorToEnd();
+  textArea->setFocus(true);
+  controlState.setInputState(InputType::AlphaNum);
+  /* AFTER setInputState, which clears it: a field gets predictive text by opting in. */
+  controlState.t9Field = true;
+  searchGen = placeSearchGen();              // what is there now has been seen; a change is news
+  searchWhy[0] = '\0';
+}
+
+/* Where distances are measured from, and what to call it (`what`): selfPosition()'s chain (a
+ * live fix, your pin, an old fix), else the crosshair - buildList's rule, its words. True when
+ * it is a position of yours. */
+bool MapsApp::searchReference(double* lat, double* lon, char* what, size_t cap) {
+  int32_t rLat = 0, rLon = 0;
+  uint32_t age = 0;
+  int src = SELF_NONE;
+  uint16_t acc = 0;
+  const int kind = selfPosition(&rLat, &rLon, &age, &src, &acc);
+  if (kind == MAPS_SELF_NONE) {
+    mapViewToLatLon(zoom, cx, cy, vpW, vpH, vpW / 2, vpH / 2, lat, lon);
+    strlcpy(what, "the crosshair", cap);
+    return false;
+  }
+  *lat = mapI7ToDeg(rLat);
+  *lon = mapI7ToDeg(rLon);
+  if (kind == MAPS_SELF_GPS && src == SELF_NET) {
+    snprintf(what, cap, "Wi-Fi +/-%u m", (unsigned)acc);
+  } else {
+    strlcpy(what, kind == MAPS_SELF_PIN ? "your pin" : "you", cap);
+  }
+  return true;
+}
+
+void MapsApp::searchSyncFooter() {
+  searchRunning = placeSearchState() == PLACE_RUNNING;
+  footer->setButtons(searchRunning ? PLACE_FOOTER_SEARCHING : "Search", searchRunning ? "Cancel" : "Clear");
+}
+
+/* Search / OK: ONE request from the reference (placeSearchStart collapses and cuts the text, and
+ * refuses with the note's words - off, no Wi-Fi, another job on the worker, a download, a call, the
+ * heap bar). An empty field does nothing. A refusal is the strip's, and the map's note too, so it
+ * is read whichever screen is looked at next. */
+void MapsApp::searchStart() {
+  const char* typed = textArea ? textArea->getText() : NULL;   // (one internal malloc, the widget's)
+  bool blank = true;
+  for (const char* c = typed; c && *c; c++) {
+    if ((unsigned char)*c > 0x20) {
+      blank = false;
+      break;
+    }
+  }
+  if (blank) {
+    return;
+  }
+  double lat = 0, lon = 0;
+  searchReference(&lat, &lon, searchFrom, sizeof(searchFrom));   // the list's "from ..." is THIS one
+  char why[96];
+  if (!placeSearchStart(typed, lat, lon, why, sizeof(why))) {
+    strlcpy(searchWhy, why, sizeof(searchWhy));
+    setNote("%s", why);
+    return;
+  }
+  searchMine = searchGen = placeSearchGen();
+  searchWhy[0] = '\0';
+  searchSyncFooter();                        // "Searching..." - the field is read-only until the fold
+  armTimer();                                // the 250 ms poll: searchSettle
+}
+
+/* The timer, on the field: the worker's answer, when placeSearchGen() moves. DONE is the list
+ * (nearest first); ERROR is the strip and the map's note, and the field again; IDLE after a
+ * Cancel is the field again with nothing said; RUNNING (a search the console started) just reads
+ * "Searching...". DO_NOTHING when nothing moved. */
+appEventResult MapsApp::searchSettle() {
+  if (placeSearchGen() == searchGen) {
+    return DO_NOTHING;
+  }
+  searchGen = placeSearchGen();
+  const int st = placeSearchState();
+  if (st == PLACE_DONE) {
+    controlState.setInputState(InputType::Numeric);
+    listKind = LIST_SEARCH;
+    enterState(MAPS_LIST);
+    return REDRAW_ALL;
+  }
+  if (st == PLACE_ERROR) {
+    strlcpy(searchWhy, placeSearchError(), sizeof(searchWhy));
+    setNote("%s", searchWhy);
+    placeSearchClear();                      // DONE/ERROR -> IDLE; it bumps the gen, which is read:
+    searchGen = placeSearchGen();            // ...nothing new to show
+  } else if (st == PLACE_IDLE) {
+    searchWhy[0] = '\0';                    // cancelled: no error, the field again
+  }
+  searchSyncFooter();
+  /* REDRAW_FOOTER too: a windowed app's footer is not repainted by REDRAW_SCREEN, and the soft
+   * keys just changed back ("Searching..."/"Cancel" to "Search"/"Clear"). */
+  return (appEventResult)(REDRAW_SCREEN | REDRAW_FOOTER);
+}
+
+/* The results, nearest the reference first (placeRows: the other lists' "1.4km NW  Name" over a
+ * second line "waterfall, Washington" - the kind, the city or state, the country when it is not
+ * the nearest result's). Rows carry the RESULT'S INDEX in listId (the pins/places rule: identity,
+ * not position): the results live until the next search starts, and OK looks the row up again. */
+void MapsApp::buildSearchList() {
+  /* Two-line rows need the taller pitch the channel picker uses (5 rows); the map's single-line
+   * menu draws a subtitle over the next row. The face is the lists' (newMenu's AKROBAT_BOLD_20),
+   * so a name is cut where the Pins / Places / Nodes lists cut theirs - 232 px: the fixture's
+   * "1.4km NW  Teneriffe Falls Trail" fits (test_placesearch measures it). */
+  freeMenu();
+  menu = new MenuWidget(0, header->height(), lcd.width(),
+                        lcd.height() - header->height() - footer->height(),
+                        "", fonts[AKROBAT_BOLD_20], 5, 8);
+  menu->setStyle(MenuWidget::DEFAULT_STYLE, WHITE, BLACK, BLACK, GREEN);
+  listCount = 0;
+  const int n = placeResultCount();
+  if (n > 0) {
+    /* From the reference the search was MADE from (placeLastRef: selfPosition() or the crosshair
+     * at the Search press - the console's own for a `maps search`), so the list and the request
+     * agree about "nearest". */
+    double rLat = 0, rLon = 0;
+    if (!placeLastRef(&rLat, &rLon)) {
+      searchReference(&rLat, &rLon, searchFrom, sizeof(searchFrom));
+    }
+    /* PSRAM, not the loop task's stack: 8 rows of 160 bytes. */
+    PlaceRow* rows = (PlaceRow*)ps_malloc(sizeof(PlaceRow) * PLACE_LIMIT);
+    if (!rows) {
+      menu->addNote("No memory for the list");
+    } else {
+      const int k = placeRows(placeResult(0), n, rLat, rLon, gUnits, NULL, rows);
+      for (int i = 0; i < k && listCount < MAPS_MAX_LIST; i++) {
+        listId[listCount] = (uint32_t)rows[i].idx;
+        menu->addOption(rows[i].text, rows[i].sub, ROW_FIRST + listCount, 1);
+        listCount++;
+      }
+      free(rows);
+    }
+  }
+  menu->addOption(PLACE_ROW_AGAIN, ROW_S_AGAIN);
+  if (listCount > 0 && searchFrom[0]) {
+    char note[48];
+    snprintf(note, sizeof(note), "nearest first, from %s", searchFrom);
+    menu->addNoteWrapped(note);
+  }
+  menu->addNoteWrapped("OpenStreetMap data via Photon (komoot), ODbL");
+}
+
+/* The field, and the strip under it: a refusal or a failure (two rows, the map note's wrapper),
+ * else "Asking photon.komoot.io..." while it runs, else the hint. */
+void MapsApp::drawSearch() {
+  if (textArea) {
+    ((GUIWidget*)textArea)->redraw(lcd);
+  }
+  SmoothFont* fnt = fonts[AKROBAT_BOLD_16];
+  if (!fnt) {
+    return;
+  }
+  const int y = (int)lcd.height() - (int)footer->height() - MAPS_SEARCH_STRIP_H;
+  lcd.fillRect(0, y, lcd.width(), MAPS_SEARCH_STRIP_H, WP_COLOR_0);
+  lcd.setTextFont(fnt);
+  lcd.setTextDatum(TL_DATUM);
+  const int pitch = (int)fnt->height() + 1;
+  if (searchWhy[0]) {
+    char nrows[MAPS_NOTE_ROWS][72];
+    NoteRowsCtx c = { fnt, (uint16_t)(lcd.width() - 8), nrows, 0 };
+    wrapNote(searchWhy, noteRowsFit, noteRowsTake, &c, MAPS_NOTE_ROWS);
+    lcd.setTextColor(WP_ACCENT_S, WP_COLOR_0);
+    for (int i = 0; i < c.n; i++) {
+      lcd.drawString(nrows[i], 4, y + 1 + i * pitch);
+    }
+    return;
+  }
+  lcd.setTextColor(WP_DISAB_1, WP_COLOR_0);
+  char l[80];
+  if (searchRunning) {
+    char host[PLACE_HOST_MAX];
+    placeSearchHost(host, sizeof(host));
+    snprintf(l, sizeof(l), "Asking %s...", host);
+    guiDrawEllipsized(lcd, l, (uint16_t)(lcd.width() - 8), 4, (int16_t)(y + 1));
+    /* Back cancels this screen's own search only; one the console started is left to finish. */
+    lcd.drawString((searchMine && searchMine == placeSearchGen()) ? "Back cancels" : "The console's search: End leaves",
+                   4, y + 1 + pitch);
+  } else {
+    double lat = 0, lon = 0;
+    char from[24];
+    searchReference(&lat, &lon, from, sizeof(from));   // RAM only: what the rows will measure from
+    snprintf(l, sizeof(l), "Nearest %s first", from);   // the soft key says Search; measured in test_placesearch
+    guiDrawEllipsized(lcd, l, (uint16_t)(lcd.width() - 8), 4, (int16_t)(y + 1));
+    lcd.drawString("Back deletes   End leaves", 4, y + 1 + pitch);
+  }
+}
+
 void MapsApp::buildAreas() {
   menu = newMenu("No maps on the card");
   char row[72];
@@ -3568,6 +3873,7 @@ void MapsApp::buildConfirmDelete() {
 /* ⚠ ROWS MUST FIT 240 PX AT AKROBAT_BOLD_16 — about 33 characters. A longer row is not
  * clipped at the right; the smooth-font renderer shifts it so BOTH ends are cut (measured:
  * "Hold an arrow..." lost its H and its last digit), which reads as a typo, not a cut. */
+#define MAPS_HELP_HOST_ROW "\x01"   // drawHelp: "  asked: <host>" from placeSearchHost()
 static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
   { "Hold an arrow: it speeds up.", WHITE },
   { "Land near a pin, place or node", WHITE },
@@ -3582,6 +3888,20 @@ static const struct { const char* text; uint16_t colour; } MAPS_HELP_ROWS[] = {
   { "  the crosshair, over WiFi", WHITE },
   { "Go to - a pin, a node, a place,", WHITE },
   { "  or typed coordinates", WHITE },
+  /* D-177. Rows of 33 or fewer characters (the rule above); the endpoint row is drawn from the
+   * setting (MAPS_HELP_HOST_ROW: `maps searchurl` can point it at your own Photon). */
+  { "Search a place - a name typed on", WHITE },
+  { "  the keypad (T9), over Wi-Fi.", WHITE },
+  { "  Results: OpenStreetMap data via", WHITE },
+  { "  Photon (komoot), ODbL. Sent:", WHITE },
+  { "  your text and your position", WHITE },
+  { "  rounded to about 100 m. Nothing", WHITE },
+  { "  else is sent.", WHITE },
+  { MAPS_HELP_HOST_ROW, WHITE },
+  { "  Your own Photon: the console's", WHITE },
+  { "  maps searchurl (https only,", WHITE },
+  { "  Let's Encrypt roots). Place", WHITE },
+  { "  search: On/Off is in the menu.", WHITE },
   { "Follow me - stays centred on you", WHITE },
   { "  until you scroll", WHITE },
   { "Measure - drops an anchor; scroll", WHITE },
@@ -3739,7 +4059,15 @@ void MapsApp::drawHelp() {
   }
   int y = top + 2;
   for (int i = helpTop; i < MAPS_HELP_N && i < helpTop + perScreen; i++) {
-    if (MAPS_HELP_ROWS[i].text[0]) {
+    if (MAPS_HELP_ROWS[i].text[0] == '\x01') {
+      /* The search endpoint in use, the host only (never a URL on a screen or in a log). */
+      char host[PLACE_HOST_MAX];
+      placeSearchHost(host, sizeof(host));
+      char row[PLACE_HOST_MAX + 12];
+      snprintf(row, sizeof(row), "  asked: %s", host);
+      lcd.setTextColor(MAPS_HELP_ROWS[i].colour, BLACK);
+      guiDrawEllipsized(lcd, row, (uint16_t)(lcd.width() - 12), 6, (int16_t)y);
+    } else if (MAPS_HELP_ROWS[i].text[0]) {
       lcd.setTextColor(MAPS_HELP_ROWS[i].colour, BLACK);
       lcd.drawString(MAPS_HELP_ROWS[i].text, 6, y);
     }
@@ -3968,6 +4296,14 @@ appEventResult MapsApp::processEvent(EventType event) {
   }
 
   if (event == APP_TIMER_EVENT) {
+    /* D-177: the search field waits on the worker here - a finished search becomes the list, a
+     * failed one the strip under the field (searchSettle). Nothing else ticks on that screen. */
+    if (appState == MAPS_SEARCH) {
+      const appEventResult r = searchSettle();
+      if (r != DO_NOTHING) {
+        return r;
+      }
+    }
     if (panHoldMask) {
       const bool held = (appState == MAPS_VIEW) && uiKeyStillHeld(panHoldMask);
       if (held && panHoldBlipMs) {
@@ -4248,6 +4584,24 @@ appEventResult MapsApp::processEvent(EventType event) {
       case ROW_M_GOTO:
         enterState(MAPS_GOTO);
         return REDRAW_ALL;
+      case ROW_M_SEARCH:
+        if (!placeSearchEnabled()) {
+          menu->select(ROW_M_SEARCH_ON);     // "Search a place: off" opens the setting: one OK turns it on
+          return REDRAW_SCREEN;
+        }
+        if (WiFi.status() != WL_CONNECTED) {
+          setNote("%s", PLACE_NOTE_NOWIFI);  // the download form's gate, its words
+          enterState(MAPS_VIEW);
+          return REDRAW_ALL;
+        }
+        enterState(MAPS_SEARCH);
+        return REDRAW_ALL;
+      case ROW_M_SEARCH_ON:
+        /* OK cycles it (NVS maps/search). The two rows re-read the setting; the cursor stays. */
+        placeSetEnabled(!placeSearchEnabled());
+        buildMenu();
+        menu->select(ROW_M_SEARCH_ON);
+        return REDRAW_SCREEN;
       case ROW_M_RESCAN:
         rescanCard();
         setNote("%d map%s, %d pin%s on the card", areaCount, areaCount == 1 ? "" : "s",
@@ -4513,6 +4867,10 @@ appEventResult MapsApp::processEvent(EventType event) {
     }
     if (LOGIC_BUTTON_OK(event) && menu) {
       const MenuOption::keyType sel = menu->readChosen();
+      if (sel == ROW_S_AGAIN) {              // the search list's last row (D-177): the field again
+        enterState(MAPS_SEARCH);
+        return REDRAW_ALL;
+      }
       /* ⚠ BEFORE the range test. MENU_ROW_NOTE minus ROW_FIRST underflows and casts to a
        * NEGATIVE index, which sails straight through an `idx < count` bounds check — the
        * trap Files, Books and Music each carry a guard for. */
@@ -4542,6 +4900,25 @@ appEventResult MapsApp::processEvent(EventType event) {
           return REDRAW_ALL;
         }
         setNote("That place is gone - it expired or was deleted");
+        enterState(MAPS_VIEW);
+        return REDRAW_ALL;
+      } else if (listKind == LIST_SEARCH) {
+        /* D-177: by the result's index. The results live until the next search STARTS - a
+         * `maps search` from the console under an open list empties them, and one that FINISHES
+         * under it replaces them: the list was built on searchGen (searchSettle's DONE gen, and
+         * nothing moves it while the list is up), so another gen means these rows are not those
+         * results - the row says so rather than centring on whatever is there now. */
+        const PlaceResult* p = placeResult((int)listId[idx]);
+        if (p && placeSearchGen() == searchGen) {
+          char name[PLACE_NAME_MAX];
+          foldAscii(p->name, name, sizeof(name));
+          placeSetLastPlace(p->name, p->lat, p->lon);   // the pin-name prefill (dropPin)
+          centreOn(p->lat, p->lon);
+          setNote("%s", name);
+          enterState(MAPS_VIEW);
+          return REDRAW_ALL;
+        }
+        setNote("That result is gone - search again");
         enterState(MAPS_VIEW);
         return REDRAW_ALL;
       } else {
@@ -4799,6 +5176,46 @@ appEventResult MapsApp::processEvent(EventType event) {
     }
     return REDRAW_SCREEN;
 
+  case MAPS_SEARCH:
+    /* A text screen: END cancels, Back is BACKSPACE (MAPS_RENAME's rule, above). While the
+     * request runs the field is read-only and Back cancels the REQUEST (the worker's flag: the
+     * handshake cannot be interrupted, so "Searching..." stays until the worker ends, then the
+     * fold brings the field back - searchSettle) - THIS SCREEN'S request only: one the console
+     * started (searchMine != placeSearchGen()) is left to finish, as END and the destructor
+     * leave it, and Back does nothing to it. */
+    if (event == WIPHONE_KEY_END) {
+      if (searchRunning && searchMine && searchMine == placeSearchGen()) {
+        placeSearchCancel();                 // this screen's search, and nobody waits for it now
+      }
+      controlState.setInputState(InputType::Numeric);
+      enterState(MAPS_VIEW);
+      return REDRAW_ALL;
+    }
+    if (searchRunning) {
+      if (event == WIPHONE_KEY_BACK) {
+        if (searchMine && searchMine == placeSearchGen()) {
+          placeSearchCancel();
+          strlcpy(searchWhy, "Cancelling...", sizeof(searchWhy));
+          return REDRAW_SCREEN;
+        }
+        return DO_NOTHING;
+      }
+      return DO_NOTHING;
+    }
+    if (LOGIC_BUTTON_OK(event)) {
+      searchStart();
+      /* REDRAW_FOOTER: the soft keys read "Searching..."/"Cancel" now (the OK key carries it from
+       * GUI.cpp on an alphanumeric screen anyway; said here so nothing depends on that). */
+      return (appEventResult)(REDRAW_SCREEN | REDRAW_FOOTER);
+    }
+    if (textArea) {
+      if (IS_KEYBOARD(event) && searchWhy[0]) {
+        searchWhy[0] = '\0';                // a key retires the strip's message, as it does the map's note
+      }
+      textArea->processEvent(event);
+    }
+    return REDRAW_SCREEN;
+
   case MAPS_HELP:
     if (LOGIC_BUTTON_BACK(event)) {
       enterState(MAPS_MENU);
@@ -4864,6 +5281,9 @@ void MapsApp::redrawScreen(bool redrawAll) {
       ((GUIWidget*)textArea)->redraw(lcd);
     }
     break;
+  case MAPS_SEARCH:
+    drawSearch();
+    break;
   default:
     if (menu) {
       ((GUIWidget*)menu)->redraw(lcd);
@@ -4899,13 +5319,15 @@ void MapsApp::armTimer() {
   /* A pin's frame waiting for the radio's answer (review M1): 4 Hz for the second or two it
    * takes, then nothing. Any state — the answer can change a pin under a menu too. */
   const bool meshWatch = meshOp.txId != 0;
+  /* A place search in flight (D-177): 4 Hz on the field until the worker answers, then nothing. */
+  const bool searching = (appState == MAPS_SEARCH) && placeSearchState() == PLACE_RUNNING;
   /* A height owed to the screen (elevDue): 50 ms ticks until it is read - the first waits for
    * the view to settle (MAPS_ELEV_SETTLE_MS), each takes one sample - then nothing. The settle
    * clock is told about the view every draw, which is where this is called from. */
   elevNoteView();
   const bool elevOwed = elevDue() != ELEV_DUE_NONE;
   controlState.msAppTimerEventPeriod = busy ? 25 : ((holding || elevOwed) ? 50 :
-                                       ((progress || meshWatch) ? 250 :
+                                       ((progress || meshWatch || searching) ? 250 :
                                        (following ? 1000 : (jobPoll ? MAPS_JOB_POLL_MS : 0))));
 }
 

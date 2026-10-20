@@ -9,6 +9,7 @@
 #include "geoloc_net.h"      // ...its status, `netloc now`, the bench's canned answers
 #include "app_photos.h"      // photosSetWallpaper, the `wallpaper set` command
 #include "app_maps.h"        // mapsConsoleStatus/Goto, the `maps` command
+#include "placesearch_net.h" // `maps search` / `maps searchurl`: the map's place search (D-177)
 #include "elev_sd.h"         // elevSampleCard, the `elev <lat> <lon>` command
 #include "elev_text.h"       // elevSampleText: the console's words for one sample
 #include "units.h"           // unitsFmtDist/Alt: distances and heights in the chosen units
@@ -276,6 +277,11 @@ static void help() {
     "  tz forget  drop the zone Auto found (Auto uses the typed offset until a fix finds one)",
     "  maps       what the card holds under /maps, the saved view, and the pins file",
     "  maps goto <lat> <lon> [z] [area]  set where the Maps app opens next (persists)",
+    "  maps search <text>  ONE place search (Photon / OpenStreetMap) from your position: the rows",
+    "             as the Maps list shows them, and the timing; `maps search` alone = the setting,",
+    "             the endpoint (host only), the last query and result",
+    "  maps searchurl <https://host/api/?q={q}&lat={lat}&lon={lon}&limit={n}> | clear  your own",
+    "             Photon (https only, port 443; Let's Encrypt roots); clear = the built-in photon.komoot.io",
     "  maps hold up|down|left|right [ms [blip]]  press an arrow and hold it (hold-to-scroll bench)",
     "  maps dl [src lat lon km zmax [elev 1|0] | stop]  the tile download: its status (map tiles and",
     "             the elevation layer's own counts), start one, or stop it (elev: /maps/elev too)",
@@ -3347,7 +3353,64 @@ static void run(char* line) {
      *                                            bench for hold-to-scroll, where no finger
      *                                            is on the key (uiKeyBenchHold); <blip> ms
      *                                            in, fake the chip's release-and-re-press
-     *                                            under a held finger (see uiKeyUpAgeMs) */
+     *                                            under a held finger (see uiKeyUpAgeMs)
+     *   maps search <text>                       D-177: ONE place search from the phone's own
+     *                                            reference; the rows and the timing print when the
+     *                                            answer lands (placeConsoleDrain, below in
+     *                                            serialCmdLoop). The query is echoed - the console's
+     *                                            own echo is the one place it is written back.
+     *   maps search                              the setting, the endpoint (HOST only), the last
+     *                                            query and result
+     *   maps searchurl <template>|clear          the endpoint template (NVS maps/searchurl; https
+     *                                            only, {q} {lat} {lon} {n}; host-tested parser) */
+    if (!strncasecmp(arg, "searchurl", 9) && (arg[9] == '\0' || arg[9] == ' ')) {
+      arg += 9;
+      while (*arg == ' ') arg++;
+      char why[96];
+      if (!*arg || !strcasecmp(arg, "clear")) {
+        if (placeSetSearchUrl("", why, sizeof(why))) {
+          say("maps searchurl: cleared - the built-in Photon endpoint (%s)\n", PLACE_HOST_DEFAULT);
+        } else {
+          say("maps searchurl: NOT cleared - %s\n", why);
+        }
+        return;
+      }
+      /* One word: a second one is a mistake to be told about (tilePlanParseDlurl's rule). */
+      const char* t = arg;
+      while (*arg && *arg != ' ') arg++;
+      const size_t tn = (size_t)(arg - t);
+      while (*arg == ' ') arg++;
+      char tmpl[PLACE_TMPL_MAX];
+      if (*arg || tn == 0 || tn >= sizeof(tmpl)) {
+        say("usage: maps searchurl <https://host/api/?q={q}&lat={lat}&lon={lon}&limit={n}> | clear\n");
+        return;
+      }
+      memcpy(tmpl, t, tn);
+      tmpl[tn] = '\0';
+      if (placeSetSearchUrl(tmpl, why, sizeof(why))) {
+        char host[PLACE_HOST_MAX];
+        placeSearchHost(host, sizeof(host));
+        say("maps searchurl: set - host %s (https; the roots pinned are Let's Encrypt's ISRG roots)\n", host);
+      } else {
+        say("maps searchurl: REFUSED - %s\n", why);
+      }
+      return;
+    }
+    if (!strncasecmp(arg, "search", 6) && (arg[6] == '\0' || arg[6] == ' ')) {
+      arg += 6;
+      while (*arg == ' ') arg++;
+      if (!*arg) {
+        placeReport(sayLine);
+        return;
+      }
+      char why[192];
+      if (placeConsoleSearch(arg, why, sizeof(why))) {
+        say("maps search: %s\n", why);
+      } else {
+        say("maps search: NOT started - %s\n", why);
+      }
+      return;
+    }
     if (!strncasecmp(arg, "hold", 4) && (arg[4] == '\0' || arg[4] == ' ')) {
       arg += 4;
       while (*arg == ' ') arg++;
@@ -3703,6 +3766,9 @@ static void run(char* line) {
 
 void serialCmdLoop() {
   uint8_t c;
+  /* A `maps search <text>` whose answer landed (placeLoopTick folded it): its rows and timing are
+   * printed here, on the loop, with the console's own say(). A flag test when nothing is pending. */
+  placeConsoleDrain(sayLine);
   // 0 ticks = poll, never block. This runs every main-loop pass.
   while (uart_read_bytes(PORT, &c, 1, 0) == 1) {
     if (c == '\r') {

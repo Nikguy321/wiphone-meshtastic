@@ -158,9 +158,11 @@ protected:
     MAPS_DOWNLOAD,      // source / radius / detail / start-stop, with the estimate and progress
     MAPS_GOTO,          // type a latitude and a longitude
     MAPS_CHANNEL,       // which channel a pin is shared on
+    MAPS_SEARCH,        // type a place name: one Photon search (D-177, placesearch.h)
   } MapsState_t;
 
-  typedef enum { LIST_PINS = 0, LIST_PLACES, LIST_NODES } MapsListKind_t;
+  /* LIST_SEARCH (D-177): the places the last search found, nearest first, two-line rows. */
+  typedef enum { LIST_PINS = 0, LIST_PLACES, LIST_NODES, LIST_SEARCH } MapsListKind_t;
 
   // ---- one cached tile ----
   struct TileSlot {
@@ -313,6 +315,17 @@ protected:
   // ---- go to coordinates ----
   char     gotoLat[16], gotoLon[16];
   int      gotoField;       // 0 = latitude, 1 = longitude
+
+  // ---- search a place (D-177) ----
+  /* The search itself lives in placesearch_net (the worker, the results, the session's last
+   * query and last place); the app polls placeSearchState()/placeSearchGen() on its timer while
+   * the field is up. These are the SCREEN's: what it last drew, and the line under the field. */
+  uint32_t searchGen;       // placeSearchGen() as last synced: a change = something to show
+  uint32_t searchMine;      // the gen of the search THIS screen started (0 = none): the one it may cancel
+  bool     searchRunning;   // the footer reads "Searching..." and the field is read-only
+  char     searchWhy[96];   // the strip under the field: a refusal, an error; "" = the hint (placesearch_net's
+                            // why/errLine size: "could not reach <a 63-byte host>" is 92 bytes; wrapped, never cut)
+  char     searchFrom[24];  // "you" / "your pin" / "the crosshair" / "Wi-Fi +/-N m" (the list's note)
 
   // ---- follow me ----
   /* A latched mode, not a one-shot: while on, every FRESH usable fix re-centres the map, and
@@ -519,6 +532,14 @@ protected:
   void  rescanCard();       // re-read the areas and pins without moving the view
   void  drawGoto();
   void  buildChannels();
+  // ---- search a place (D-177) ----
+  void  buildSearch();      // the text field (buildRename's widget, T9 on, the last query prefilled)
+  void  buildSearchList();  // the results, nearest first, two-line rows (the channel picker's pitch)
+  void  drawSearch();       // the field and the strip under it
+  void  searchStart();      // Search/OK: one request from the reference, or the refusal on the strip
+  void  searchSyncFooter(); // "Search"/"Clear" or "Searching..."/"Cancel", from placeSearchState()
+  bool  searchReference(double* lat, double* lon, char* what, size_t cap);   // selfPosition(), else the crosshair; names it
+  appEventResult searchSettle();                     // the timer: a finished search becomes the list, an error the strip
   /* The channel a pin is shared on, by the NAME stored with it: NULL when it has none or
    * the channel is no longer on this phone (the picker is offered then). */
   const MeshChannel* pinChannel(int idx) const;

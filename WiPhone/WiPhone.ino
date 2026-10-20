@@ -46,6 +46,7 @@ governing permissions and limitations under the License.
 #include "weather_net.h"     // the Almanac's weather: a fetch folded into the cache each pass (0.9.81)
 #include "https_worker.h"    // netRequestActive: an AI question, a weather fetch or a Wi-Fi location look on the shared worker
 #include "geoloc_net.h"      // Wi-Fi location: geolocSetup / geolocLoop (0.9.82)
+#include "placesearch_net.h" // the map's place search: a finished Photon answer folded each pass (D-177)
 #include "app_maps.h"        // gMapsActive: the map owns the side buttons while it is open
 #include "prefs_almanac.h"   // gUnits / gLegalRule: loaded at boot beside the GPS switch (0.9.80)
 #include "esp_wifi.h"       // esp_wifi_get_ps/set_ps: the modem-sleep invariant in loop()
@@ -5652,6 +5653,10 @@ void loop() {
       /* The Almanac's weather the same way (weather_net.h): a finished fetch folded into the cache
        * and written to the card here, whether or not the Almanac is open. A flag test when idle. */
       wxLoopTick();
+      /* The map's place search (placesearch_net.h, D-177): a finished Photon answer folded into
+       * its result slot here, so the Maps app polls a state and never waits on the worker. A flag
+       * test when idle. */
+      placeLoopTick();
       /* Wi-Fi location (geoloc_net.h): a finished beaconDB look folded into the service's Wi-Fi
        * slot (a flag test when idle), then once a second the decisions - look, ask the
        * auto-switcher for a scan, a dry look. The position is "wanted" while Maps or the Almanac

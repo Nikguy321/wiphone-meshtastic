@@ -1,6 +1,119 @@
 # Changelog
 
-## 0.9.82-NH (unreleased) - map tiles from the Mac over WiFi, the phone's location from a hotspot, automatic time zones, Wi-Fi location, AI answers that know today, Chutes models, web search
+## 0.9.82-NH (unreleased) - map tiles from the Mac over WiFi, the phone's location from a hotspot, automatic time zones, Wi-Fi location, AI answers that know today, Chutes models, web search, a place search on the map
+
+### Maps: search a place by name - Photon / OpenStreetMap, no key (0.9.82-NH dev, D-177)
+
+Nick (2026-10-20, leaving for a hike): "On the go-to page on the maps, if I have internet, I want to be able to search for
+places by name. Something similar to how Google maps does it... For the wiphone though I would like this feature to be able
+to be something that is scalable to be shared. Some other people have requested I had this feature." COVEY's research
+picked **Photon** (komoot's OpenStreetMap geocoder, `https://photon.komoot.io`): no key and no sign-up for a shared
+firmware, typo-tolerant and ranked like a search box, biased to a given position, tiny replies (the measured
+`teneriffe falls` near North Bend: the waterfall and two trails, 1,137 bytes, ~0.4 s from a Mac), and terms a
+distributed app can keep ("please be fair - extensive usage will be throttled"). Nominatim was ruled out for a shared
+build (a per-application User-Agent, no autocomplete, 1 request/s per application, and apps must be switchable off at
+OSMF's request without a software update - a remote kill switch this firmware will not carry). The spec is COVEY's
+`docs/research/2026-10-20_place_search/D-177_spec.md`; COVEY gets the same feature on its GO screen.
+
+- **Menu > Search a place...** (above *Go to coordinates...*; "Search a place (needs Wi-Fi)" without a network, and
+  chosen then it says *Not on WiFi - join a network first*; "Search a place: off" with the setting off, and it opens
+  the setting). A text field like the pin's rename, header "Search a place", **predictive text on** for it (`#` cycles
+  T9 / Abc / ABC / 123, as the AI compose), footer Search / Clear, **Back deletes, End leaves**, opening on the
+  session's last query. An empty field sends nothing. Search (or OK): ONE request from the reference the lists
+  measure from (a live fix, your pin, an old fix, else the crosshair); the footer reads **Searching...**, the field is
+  read-only, the strip under it says which host is asked, and **Back cancels** the request - this screen's own; one
+  the console started is left to finish - (the worker's cancel flag: the handshake cannot be interrupted, so
+  "Cancelling..." until the worker ends, then the field again, no error).
+- **The results** are a new list kind (two-line rows, the channel picker's pitch), **nearest first** from the
+  reference the search was made from: `1.4km NW  Teneriffe Falls Trail` over `path, Washington` - the kind
+  (`osm_value`, else `type`, `_` a space), the city else the state, and the country only when it is not the nearest
+  result's; names folded to ASCII the way the Wikipedia text is. Header "Found 3 for 'teneriffe falls'" (the query
+  folded, cut to the title with its quote closed) or "Nothing found for '...'" with one row **Search again**; a last
+  line "nearest first, from you | your pin | the crosshair | Wi-Fi +/-N m" and the attribution. At most 8 asked for and
+  kept; a result with no name or coordinates outside -90..90 / -180..180 is dropped; two with the same name within
+  50 m are one. OK on a row: `centreOn`, the name on the strip, the map. A result that is gone (a `maps search`
+  from the console under an open list empties them, or finishes under it and replaces them - the list's gen is
+  compared) says so instead of centring on whatever is there.
+- **A named pin in four presses**: the place chosen is kept until the map closes, and OK on the crosshair within
+  10 px of it (`placeNearPx`, world pixels at the view's zoom) drops the pin **already named after it** (folded,
+  `mapPinSanitizeName`'d) - the rename field opens on the name, Save keeps it, End keeps it too.
+- **Setting**: Menu > **Place search: On/Off** (OK cycles in place; NVS `maps/search`, absent = On). The endpoint is
+  a **template in NVS** (`maps/searchurl`, "" = the built-in `https://photon.komoot.io/api/?q={q}&lat={lat}&lon={lon}&
+  limit={n}&lang=en`), set over the console only: `maps searchurl <https://host/api/?q={q}...>` / `clear` - `https://`
+  only, **port 443 only** (no `:port` - the worker has no port field), a host, `{q}` required, only `{q}` `{lat}`
+  `{lon}` `{n}` in braces, printable ASCII under 200 bytes; refused while a search runs (the worker reads the host); a
+  stored template this firmware refuses is not used (the default stands). So a group can run its own Photon
+  (github.com/komoot/photon) and point every phone at it, and a change at komoot needs no reflash. The roots pinned
+  are ISRG Root X1 + the self-signed Root YR (`isrg_roots.h`, the weather's pair: `photon.komoot.io` chains leaf <-
+  Let's Encrypt YR1 <- Root YR, cross-signed by X1, TLS 1.2, measured 2026-10-20), so **a self-hosted instance
+  needs a Let's Encrypt certificate** - the help page and docs/maps.md say so.
+- **Scalable to be shared** (the spec's rule for a public firmware with no key): ONE GET per Search press - never
+  autocomplete, never a request per keystroke, **never a retry**, no redirect followed; a real `User-Agent`
+  (`WiPhone-NH/<version> maps-search (+https://github.com/Nikguy321/wiphone-meshtastic)`); `limit=8`, `lang=en`;
+  the query whitespace-collapsed and cut at a word at 100 UTF-8 characters, RFC 3986 percent-encoded; the reference
+  to **3 decimals (about 100 m)**, integer-formatted (never "-0.000"), enough to rank by and not a fix. Nothing else
+  about the user in the request (no node id, no name).
+- **Privacy**: nothing is stored but the session's last query and the last place chosen (RAM: `placesearch_net`'s
+  PSRAM struct; the place forgotten when the map closes); no history on the card; the URL (it holds the query) is
+  never logged - one line a search (`place search: ok 3 0.6 s`, `place search: failed dns`); `maps search` prints
+  the HOST, never the template or the URL; the console's own echo of `maps search <text>` is the one place the query
+  is written back.
+- **Errors**, the line under the field and the map's strip, never a raw body: *no answer in 10 s* (the Tavily
+  budget: 6 s TCP + handshake, 10 s DNS to the last byte), *the service refused (HTTP 429)* (any non-200; a 3xx is
+  never followed), *not on WiFi*, *could not reach photon.komoot.io* (DNS, connect, TLS), *could not read the
+  answer* (not a FeatureCollection, cut short, past the worker's 64 KB sink), *the connection dropped*, *phone low on
+  memory - reboot first* (the handshake's heap bar), *another network job is running* (an AI question, a weather
+  fetch, a Wi-Fi location look: refused, **never queued** behind a 150 s question), and the weather's gates with their
+  words (a map download, the uploader, a sync window, a call, a game, a Files job). A Search pauses a playing track
+  for the handshake, as a weather Refresh does. Nothing runs twice.
+- **Console**: `maps search <text>` - one search from the phone's own reference (a live fix, else the pin, else the
+  newest non-Wi-Fi fix, else the saved map view), the echo `searching '<q>' from you (47.490,-121.700) - the rows
+  follow`, then, when the answer lands, `maps search: Found N for '<q>' (from you)`, the rows exactly as the list
+  shows them (`  1. 1.4km NW  Teneriffe Falls Trail` / `     path, Washington`) and `  HTTP 200, net ok, 1137 B, dns
+  N ms, connect+handshake N ms, all N ms`; `maps search` alone - the setting, the endpoint (host, built-in or custom),
+  the state, the last query, the last result and its timing, the last place chosen; `maps searchurl <template>|clear`.
+  The bench for the review: the one live check is the main session's, after flashing phone 1.
+- **Help page** (Menu > What the buttons do...): a paragraph under Go to - what it is, OpenStreetMap via Photon
+  (ODbL), what is sent, the host asked (drawn from the setting), `maps searchurl` and the Let's Encrypt rule. Every
+  row measured in the firmware's Akrobat_Bold16 table (183-218 px of 234).
+- **Code**: new pure `placesearch.h/.cpp` (no Arduino or IDF header, no allocation, no recursion; the query's cut,
+  the URL and the template rules, the GeoJSON parser on `json_read.h`, the drops and the dedupe, the rows
+  byte-identical to the lists' formula, the header, `placeNearPx`, every failure's words) and `placesearch_net.h/.cpp`
+  (NVS, the gates, one `NET_JOB_PLACE` job on the shared HTTPS worker - `https_worker.h` gained the kind and
+  `netRequestActive()` the busy term - the parse on the worker into PSRAM, the fold in `placeLoopTick()` from
+  `loop()`, the last query and place, the console). `app_maps` gained `MAPS_SEARCH` (the field, the strip, the
+  timer's 250 ms poll, `searchSettle`), `LIST_SEARCH` (the two-line list), the two menu rows, the pin-name prefill in
+  `dropPin`, the help rows; `serial_cmd` the three commands and the drain. Tests: `tests/test_placesearch.cpp` (210
+  checks: the cut, the encoding, the bias, the default URL exact, the template rules (a `:port` refused), the real fixture
+  `tests/fixtures/place/photon_teneriffe.json` and that fixture cut at every byte = BAD, every shape, a 120 KB body,
+  12 -> 8, the dedupe, the rows, the header, `placeNearPx`, every error word, the two roots' SHA-256, and the
+  screen's words measured in the firmware's own glyph tables - the fixture's rows in the lists' Akrobat Bold 20 at
+  232 px, the strip's hints in Bold 16, every failure line wrapped into the strip's two rows) and
+  `tests/check_place_glue.py` (14 contracts: the roots, the User-Agent, the budgets, the request's shape, https only,
+  never retried or redirected, cancel honoured, the worker, the gates, no URL/query/coordinate in a log line, NVS, the
+  console, memory, and the screen - the prefill asks `placeNearPx(zoom, ..., PLACE_NEAR_PX)`, the last place is
+  forgotten with the app, the text screen never tests `LOGIC_BUTTON_BACK`, Back while this screen's search runs cancels,
+  the T9 opt-in after `setInputState`, the rows in PSRAM, the place kept before `centreOn`, the list's OK on its own gen,
+  no log line in the screen's search code, `maps searchurl` refused under a running search, an unprinted console answer
+  never overwritten - 51 in-place self-mutations caught, every file restored md5-verified; 8 of them also recompile and run
+  `test_placesearch` against the mutant). `./tests/run_tests.sh` exit 0; `check_ai_glue` still 27 contracts /
+  284 mutations. `pio run` SUCCESS: RAM 28.1 % (92,164 B, +24 on the D-176 build), flash 48.7 % (3,191,199 B, +22,696
+  on the D-176 build's 3,168,503).
+- **Review (2026-10-20, before the flash)**: a `:port` in a custom template is refused (the worker connects to 443
+  only - it was accepted, reported "set", and then failed every search with "could not reach"); `maps searchurl` is
+  refused while a search runs (the worker reads the host for DNS and the SNI); a Search while the console's last
+  answer is still unprinted is refused instead of losing the answer; every gate's line carries the `Place search:`
+  prefix (the worker's own refusals did not); `maps search` reports a cancel as the last result and never a stale
+  "from you" after an app search; Back on the field cancels THIS screen's search only (END and the destructor already
+  did - a console search is left to finish, and the strip says so); OK on a result checks the list's gen, so a console
+  search that finished under an open list says "gone" instead of centring on another result; the footer actually
+  repaints to Searching.../Cancel and back (REDRAW_FOOTER - REDRAW_SCREEN alone does not touch a windowed app's
+  footer); the strip's idle hint is "Nearest <reference> first" (the old line overflowed for two references and the
+  ellipsis ate the reference); the results list uses the lists' own face (Akrobat Bold 20: the fixture's own row did
+  not fit the ExtraBold 22); `searchWhy[96]`, so a long custom host is wrapped, never cut mid-word.
+- **Owed**: the main session flashes phone 1 (phone 2 is on the hike) and benches `maps search teneriffe falls` -
+  the handshake time to photon.komoot.io on this phone (software ECC, 2-3 s on hosts like it), the worker's stack
+  floor with the parser on it, and one search from the screen: the field, the list, OK, the named pin.
 
 ### AI: web search with your own Tavily key - optional, off without it (0.9.82-NH dev, D-176)
 

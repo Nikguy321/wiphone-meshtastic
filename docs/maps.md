@@ -23,7 +23,7 @@ mesh has shared and the last position of everyone who has spoken.
 | **Side button 3** | centre on me: a live GPS fix (4+ satellites), else the pin you declared by hand. Also `0` |
 | **Side button 4** (bottom) | the next map type — the same switch as **Menu → Map area**, one press at a time, round and round (`usgs-topo` → `usgs-img` → `otm` → …). The ground under the crosshair stays put; the strip says which map you are on. With one map on the card it says so |
 | **OK** | drop a pin on the crosshair and name it — or, with a pin under the crosshair, open it (rename / move / share / delete). Also `5` |
-| **Menu** (top-left soft key) | **What the buttons do...** is its first row — the phone's buttons drawn with what each does. Then download maps, go to coordinates, follow me, measure (an anchor at the crosshair; scroll away and the strip reads the distance and bearing), **Snap to markers: ON/off**, **Altitude: ON/off** and **Units: metric / US (ft, mi, mph, F)** (both below), pins, places, nodes — the three lists are **nearest-first** with distance and bearing on every row |
+| **Menu** (top-left soft key) | **What the buttons do...** is its first row — the phone's buttons drawn with what each does. Then pins, places, nodes — the three lists are **nearest-first** with distance and bearing on every row — **Search a place...** (a name typed on the keypad, over Wi-Fi: below), go to coordinates, centre on me, follow me, measure (an anchor at the crosshair; scroll away and the strip reads the distance and bearing), **Snap to markers: ON/off**, **Altitude: ON/off**, **Units: metric / US (ft, mi, mph, F)**, **Place search: On/Off** (all below), download maps, the map area, rescan |
 | **7 / 9** | previous / next pin, centring the map on it |
 | **Back** | leave. Where you were looking is saved — also on power-off |
 
@@ -75,6 +75,103 @@ is the part that says where somebody is, and the name is on the Nodes list eithe
    whichever the Meshtastic app's own precedence picks.
 4. The middle of whatever tiles are actually on the card.
 5. 0, 0 — with the map saying there is nothing to show.
+
+## Search a place
+
+**Menu → Search a place...** (0.9.82, D-177): type a name on the keypad — *teneriffe falls*,
+*north bend*, *mailbox peak trailhead* — press **Search**, and the map jumps to the one you pick.
+Something like the search box on a phone's map, for a phone with no browser: it needs **Wi-Fi**
+and nothing else — no account, no key, no sign-up.
+
+- **The field** opens on your last query (one session's memory, so a second search starts from
+  the first). Names are typed with the keypad: **predictive text is on** for this field (`#`
+  cycles T9 → Abc → ABC → 123, and the footer says which), **Back deletes, End leaves**, Search
+  (or OK) sends. An empty field sends nothing. While the answer is on its way the footer reads
+  **Searching...**, the field is read-only, and **Back cancels** the request (your own — one
+  started from the console with `maps search` is left to finish; End leaves either way).
+- **The results** are a list, **nearest first** from where you are (a live fix, else your
+  declared pin, else an old fix, else the crosshair — the same reference the Pins / Places /
+  Nodes lists measure from, and the list's last line says which): `1.4km NW  Teneriffe Falls`
+  over a second line with what it is and where — `waterfall, Washington`, `path, Kootenay,
+  Canada` (the country only when it is not the nearest result's). The header reads **Found 3 for
+  'teneriffe falls'**, or **Nothing found for '...'** with one row, **Search again**. At most 8
+  results; two with the same name within 50 m are one row. OK on a row centres the map on it and
+  says its name on the strip.
+- **A named pin in four presses.** The place you jumped to is remembered until the map closes,
+  and **OK on the crosshair within 10 px of it drops a pin already named after it** (the name
+  field opens on it; Save, or End to keep it). Nothing is written to the card by a search
+  itself.
+- **Setting:** **Menu → Place search: On/Off** (OK cycles; default On; NVS `maps/search`). With
+  it Off the search row reads *Search a place: off* and opens the setting. Without Wi-Fi it
+  reads *Search a place (needs Wi-Fi)* and says *Not on WiFi - join a network first*.
+- **When it fails** the line under the field (and the map's strip) says so, in these words, and
+  **nothing is retried by itself**: *Place search: no answer in 10 s* · *Place search: the
+  service refused (HTTP 429)* (busy — try later) · *Place search: not on WiFi* · *Place search:
+  could not reach photon.komoot.io* (DNS or TLS) · *Place search: could not read the answer* ·
+  *Place search: another network job is running* (an AI question, a weather fetch, a Wi-Fi
+  location look — never queued behind one) · *Place search: a map download is running* (and the
+  uploader, a sync window, a call, a game, a Files job — the weather's gates). Budgets: 6 s for
+  TCP + the TLS handshake, 10 s for the whole exchange.
+
+### Where the answers come from, and what is sent
+
+Results are **OpenStreetMap** data, served by **[Photon](https://photon.komoot.io)** (komoot's
+open geocoder; the data is under the [ODbL](https://opendatacommons.org/licenses/odbl/)). Photon
+asks that its public instance be used fairly — one request per deliberately typed query, never a
+request per keystroke — and that is how this is built: **one GET per Search press**, at most 8
+results asked for, a real `User-Agent` (`WiPhone-NH/<version> maps-search (+https://github.com/
+Nikguy321/wiphone-meshtastic)`) so an operator can see who is asking.
+
+**What leaves the phone:** the text you typed (whitespace collapsed, cut at a word at 100
+characters) and your reference position **rounded to 3 decimals (about 100 m)** — enough to rank
+"the nearest Teneriffe Falls", not a fix. Nothing else: no node id, no name, no history. **What
+is kept:** the session's last query and the last place chosen, in RAM, gone at power-off; nothing
+on the card. The URL (which holds the query) is never written to the log — the log has one line
+per search (`place search: ok 3 0.6 s`, `place search: failed dns`), and the console's own echo
+of `maps search <text>` is the one place the query is written back.
+
+TLS: `photon.komoot.io` chains to Let's Encrypt (`YR1` → ISRG Root YR, cross-signed by ISRG Root
+X1), and the phone pins exactly those two roots (`isrg_roots.h`, the weather's pair). The request
+runs on the shared HTTPS worker (`https_worker.h`) with mbedTLS in PSRAM, like the AI and the
+weather; it pauses a playing track for the handshake, as a weather Refresh does.
+
+### Your own Photon
+
+The endpoint is a **setting**, so a group can run its own Photon
+([github.com/komoot/photon](https://github.com/komoot/photon)) and point every phone at it, and a
+change at komoot needs no reflash. Over the serial console:
+
+```
+maps searchurl https://photon.example.org/api/?q={q}&lat={lat}&lon={lon}&limit={n}
+maps searchurl clear                     back to the built-in photon.komoot.io
+```
+
+The template must be `https://` (never http), **port 443 only** (no `:port` in the template —
+the phone connects to 443), carry `{q}`, and use only `{q}` `{lat}` `{lon}` `{n}` in braces
+(`lang=en` and the like are yours to add); it is kept in NVS (`maps/searchurl`), re-checked at
+boot, and refused while a search is running. ⚠ The roots pinned are the two ISRG roots, so **a self-hosted instance
+needs a Let's Encrypt certificate** — any other CA is "could not reach". `maps search` alone
+prints the host in use (never the whole template).
+
+### From the console
+
+```
+maps search teneriffe falls              ONE search from the phone's own reference (a live fix,
+                                         else your pin, else the newest fix, else the saved map
+                                         view): echoes the query and the rounded point, then,
+                                         when the answer lands, the header and the rows exactly as
+                                         the list shows them, and the timing:
+                                           maps search: Found 3 for 'teneriffe falls' (from you)
+                                             1. 1.4km NW  Teneriffe Falls Trail
+                                                path, Washington
+                                             ...
+                                             HTTP 200, net ok, 1137 B, dns 40 ms,
+                                             connect+handshake 2100 ms, all 2600 ms
+maps search                              the setting, the endpoint (host only, built-in or
+                                         custom), the state, the last query, the last result and
+                                         its timing, the last place chosen
+maps searchurl <template> | clear        your own Photon (above)
+```
 
 ## Pins, and what "share" means
 
@@ -775,6 +872,9 @@ So the serial console can drive the whole thing:
 ```
 maps                          what the card holds, the saved view, the pins file
 maps goto 47.6062 -122.3321 15 home     set where Maps opens next
+maps search teneriffe falls   one place search from the phone's reference: the rows as the
+                              list shows them, and the timing ("Search a place", above)
+maps search                   the search's setting, endpoint host, last query and result
 elev                          the altitude layer, the setting, and (Maps open) the last
                               samples of the crosshair and "you" as the strip words them
 elev 47.49643 -121.79         sample the elevation tiles at any point, timed:

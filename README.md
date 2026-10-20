@@ -376,6 +376,16 @@ and the Mac-side command are in **[docs/maps.md](docs/maps.md)**.
   ruler (scroll away from the anchor, read the distance); the Pins / Places / Nodes lists are
   nearest-first with distance and bearing on every row. **Menu → What the buttons do...**
   draws the phone's buttons with what each one does on the map.
+- **Search a place by name** (0.9.82). `Menu → Search a place...`: type *teneriffe falls* on
+  the keypad (predictive text is on for this field), press Search, and the results come back
+  **nearest first** — `1.4km NW  Teneriffe Falls` over `waterfall, Washington` — OK jumps the
+  map there, and OK on the crosshair then drops a pin **already named after the place**. Needs
+  Wi-Fi and nothing else: no account, no key. Results are **OpenStreetMap** data via
+  **Photon** (komoot's open geocoder, ODbL); **what is sent is the text you typed and your
+  position rounded to about 100 m, nothing else**, and nothing is kept but the session's last
+  query and last place, in RAM. One request per Search press, never a retry. `Menu → Place
+  search: On/Off` turns it off; a group can point every phone at its own Photon from the console
+  (`maps searchurl`, https only). [docs/maps.md](docs/maps.md), "Search a place".
 - **Arrows scroll — a tap is a 12 px nudge, a hold keeps scrolling and speeds up** (240 →
   960 px/s over the first 0.6 s, by time, so a slow frame moves further rather than later;
   and a hold survives the keypad chip's release-blip under a steady thumb — since 0.9.73). With
@@ -1140,6 +1150,8 @@ Plug in USB, open a terminal at **500000 baud**, type `?`:
 | `heap` | memory truth: internal/DMA/PSRAM free + largest + floor since boot |
 | `maps dl [src lat lon km zmax \| stop]` | the tile downloader: status with heap floor, start, stop (`docs/maps.md`) |
 | `maps dlurl <template> \| clear` | a plain-HTTP relay as tile source 3 (`{z}/{x}/{y}`) |
+| `maps search <text>` / `maps search` | one place search (Photon / OpenStreetMap) from your position: the rows as the Maps list shows them, and the timing (DNS, handshake, all, bytes); alone, the setting, the endpoint (host only), the last query and result |
+| `maps searchurl <template> \| clear` | your own Photon as the search endpoint (`https://host/api/?q={q}&lat={lat}&lon={lon}&limit={n}`; https only, port 443, Let's Encrypt roots); `clear` = the built-in photon.komoot.io |
 | `tlstest <url> [n]` | the TLS bench: n kept-alive GETs from the fetch task, heap and timing |
 | `up on maps` | the tile uploader: `tools/wiphone_send.py --app maps --tree <dir>` |
 | `up on keys` | the API-key uploader into `/API Keys` (over WiFi): `tools/wiphone_send.py --app keys --ip <addr> gemini.txt` (always sent whole) |

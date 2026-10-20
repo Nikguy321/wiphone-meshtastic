@@ -52,8 +52,11 @@
 #define NET_HTTP_TIMEOUT_MAX  65535u          // HTTPClient::setTimeout(uint16_t): its header wait's ceiling
 
 /* The worker runs the lowest queued kind first: a question a person is staring at, then the
- * weather they asked for, then Wi-Fi location (geoloc_net.h, 0.9.82: nobody waits on it). */
-enum { NET_JOB_AI = 0, NET_JOB_WX, NET_JOB_GEO, NET_JOB_KINDS };
+ * weather they asked for, then Wi-Fi location (geoloc_net.h, 0.9.82: nobody waits on it). The
+ * map's place search (placesearch_net.h, D-177) is a person staring too, but it is never QUEUED
+ * behind another kind - it is refused while one runs (its 10 s budget would be a lie) - so its
+ * place in the order only matters when nothing else is there. */
+enum { NET_JOB_AI = 0, NET_JOB_WX, NET_JOB_GEO, NET_JOB_PLACE, NET_JOB_KINDS };
 
 typedef void (*NetJobFn)(void);
 
